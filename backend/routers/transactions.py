@@ -4,9 +4,10 @@ Router for Transaction management.
 Handles transaction creation, filtering, duplicate prevention, and aggregate summaries.
 """
 
+import calendar
 import hashlib
-from datetime import datetime
-from typing import Optional, List
+from datetime import datetime, timezone
+from typing import Optional, List, Dict
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +16,9 @@ from database import get_db
 from models.transaction import Transaction
 from models.user import User
 from schemas.transaction import TransactionCreate, TransactionResponse, TransactionSummaryResponse
+from schemas.sms import SMSIngestionRequest, SMSIngestionResponse
+from utils.sms_parser import parse_sms
+from utils.categorizer import categorize_merchant
 from utils.dependencies import get_current_user
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
@@ -110,6 +114,7 @@ async def list_transactions(
     category: Optional[str] = Query(None, description="Filter transactions by category"),
     start_date: Optional[datetime] = Query(None, description="Start date for range filter"),
     end_date: Optional[datetime] = Query(None, description="End date for range filter"),
+    type: Optional[str] = Query(None, description="Filter by transaction type ('debit' or 'credit')"),
     user_id: Optional[int] = Query(None, description="Filter by user ID (admin/family only)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -122,6 +127,7 @@ async def list_transactions(
         category (Optional[str]): Category to filter.
         start_date (Optional[datetime]): From date.
         end_date (Optional[datetime]): To date.
+        type (Optional[str]): Filter by transaction type ('debit' or 'credit').
         user_id (Optional[int]): Query for another user's transactions.
         current_user (User): Authenticated user.
         db (AsyncSession): Database session.
@@ -161,6 +167,8 @@ async def list_transactions(
         conditions.append(Transaction.date >= start_date)
     if end_date:
         conditions.append(Transaction.date <= end_date)
+    if type:
+        conditions.append(Transaction.type == type.lower())
 
     query = select(Transaction).where(and_(*conditions)).order_by(Transaction.date.desc())
     result = await db.execute(query)
@@ -170,47 +178,128 @@ async def list_transactions(
 
 @router.get(
     "/summary",
-    response_model=TransactionSummaryResponse,
-    summary="Get daily, monthly, and yearly transaction aggregates",
+    response_model=Dict[str, float],
+    summary="Get category totals for a given month",
 )
 async def get_summary(
+    month: str = Query(..., description="Given month in YYYY-MM format, e.g., 2026-05"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-) -> TransactionSummaryResponse:
+) -> Dict[str, float]:
     """
-    Computes aggregated expense/income totals grouped by day, month, and year.
+    Computes category totals for the authenticated user for a given month.
 
     Args:
+        month (str): The month to filter by, formatted as YYYY-MM.
+        current_user (User): Authenticated user.
+        db (AsyncSession): Database session.
+
+    Raises:
+        HTTPException: 400 Bad Request if the month format is invalid.
+
+    Returns:
+        Dict[str, float]: Aggregated transaction totals grouped by category.
+    """
+    try:
+        parsed_month = datetime.strptime(month, "%Y-%m")
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid month format. Use YYYY-MM format, e.g., 2026-05."
+        )
+
+    _, last_day = calendar.monthrange(parsed_month.year, parsed_month.month)
+    start_date = datetime(parsed_month.year, parsed_month.month, 1, 0, 0, 0, tzinfo=timezone.utc)
+    end_date = datetime(parsed_month.year, parsed_month.month, last_day, 23, 59, 59, 999999, tzinfo=timezone.utc)
+
+    query = (
+        select(Transaction.category, func.sum(Transaction.amount))
+        .where(
+            and_(
+                Transaction.user_id == current_user.id,
+                Transaction.date >= start_date,
+                Transaction.date <= end_date
+            )
+        )
+        .group_by(Transaction.category)
+    )
+    result = await db.execute(query)
+    
+    return {row[0]: float(row[1]) for row in result.all()}
+
+
+@router.post(
+    "/ingest-sms",
+    response_model=SMSIngestionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Ingest a transaction via raw SMS",
+)
+async def ingest_sms(
+    sms_in: SMSIngestionRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> SMSIngestionResponse:
+    """
+    Parses and processes an incoming SMS transaction alert.
+    Checks for duplicates using SHA-256 hash of (amount + date + account_last4).
+
+    Args:
+        sms_in (SMSIngestionRequest): Inbound raw SMS message and sender.
         current_user (User): Authenticated user.
         db (AsyncSession): Database session.
 
     Returns:
-        TransactionSummaryResponse: Structured object of grouped transaction sums.
+        SMSIngestionResponse: Ingestion response with success, transaction object, and status message.
     """
-    # Fetch all transactions for simple processing
-    # (In high scale, direct db-level string formatting or group by can be used, but this is a portable solution)
-    query = select(Transaction).where(Transaction.user_id == current_user.id)
-    result = await db.execute(query)
-    txs = result.scalars().all()
+    parsed = parse_sms(sms_in.raw_sms, sms_in.sender)
+    if not parsed:
+        return SMSIngestionResponse(
+            success=False,
+            transaction=None,
+            message="Not a bank transaction SMS"
+        )
 
-    daily = {}
-    monthly = {}
-    yearly = {}
+    # Categorize the merchant
+    category = categorize_merchant(parsed["merchant"])
 
-    for tx in txs:
-        # Determine multiplier depending on type (debit is negative, credit is positive)
-        # Or alternatively just sum absolute values. Let's sum debit values as positive expenses
-        # to see spending trends, or treat debit as negative. Let's make it the net balance
-        # or simple spending sum. Let's calculate simple net balance for comprehensive summaries.
-        multiplier = 1.0 if tx.type == "credit" else -1.0
-        val = float(tx.amount) * multiplier
+    # Generate the duplicate checker fingerprint (using date to day-level precision to match amount+date+account_last4 requirement)
+    raw_str = f"{parsed['amount']:.2f}:{parsed['date'].date().isoformat()}:{parsed['account_last4'] or 'unknown'}"
+    fingerprint = hashlib.sha256(raw_str.encode("utf-8")).hexdigest()
 
-        day_key = tx.date.strftime("%Y-%m-%d")
-        month_key = tx.date.strftime("%Y-%m")
-        year_key = tx.date.strftime("%Y")
+    # Check for duplicate
+    duplicate_query = select(Transaction).where(Transaction.hash_fingerprint == fingerprint)
+    result = await db.execute(duplicate_query)
+    if result.scalars().first():
+        return SMSIngestionResponse(
+            success=False,
+            transaction=None,
+            message="Duplicate transaction detected"
+        )
 
-        daily[day_key] = daily.get(day_key, 0.0) + val
-        monthly[month_key] = monthly.get(month_key, 0.0) + val
-        yearly[year_key] = yearly.get(year_key, 0.0) + val
+    # Convert date to timezone-aware UTC if timezone-naive
+    tx_date = parsed["date"]
+    if tx_date.tzinfo is None:
+        tx_date = tx_date.replace(tzinfo=timezone.utc)
 
-    return TransactionSummaryResponse(daily=daily, monthly=monthly, yearly=yearly)
+    # Save transaction to database
+    new_tx = Transaction(
+        user_id=current_user.id,
+        amount=parsed["amount"],
+        type=parsed["type"],
+        category=category,
+        merchant=parsed["merchant"],
+        bank=parsed["bank"],
+        account_last4=parsed["account_last4"],
+        date=tx_date,
+        hash_fingerprint=fingerprint,
+        source="sms",
+    )
+
+    db.add(new_tx)
+    await db.flush()
+
+    return SMSIngestionResponse(
+        success=True,
+        transaction=new_tx,
+        message="SMS ingested successfully"
+    )

@@ -25,7 +25,7 @@ from database import engine
 # App Configuration
 APP_ENV = os.getenv("APP_ENV", "development")
 APP_PORT = int(os.getenv("APP_PORT", "8000"))
-ALLOWED_ORIGINS = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")]
+ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
 
 # Create FastAPI Instance
 app = FastAPI(
