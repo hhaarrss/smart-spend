@@ -57,19 +57,14 @@ app.include_router(family_router)
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    """
-    FastAPI startup hook.
-    Verifies connection to the PostgreSQL database.
-    """
     print("Initializing Smart Expense Tracker Backend...")
     try:
-        # Check database engine connectivity
+        from sqlalchemy import text
         async with engine.connect() as conn:
-            await conn.execute(engine.dialect.default_compiler.process(None))
+            await conn.execute(text("SELECT 1"))
         print("Database connection successfully established.")
     except Exception as e:
         print(f"Warning: Database connection could not be established during startup. Error: {e}")
-
 
 @app.get("/", tags=["Health"])
 async def root() -> dict:
