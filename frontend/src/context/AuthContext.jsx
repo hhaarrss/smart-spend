@@ -19,17 +19,10 @@ export const useAuth = () => {
  * Retains JWT state in-memory only.
  */
 export const AuthProvider = ({ children }) => {
-  const mockToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QGV4YW1wbGUuY29tIiwidXNlcl9pZCI6MSwiZXhwIjoxNzc5Nzg0MDkxfQ.is4ui-kAEC2y5OvUqMVgTazOTzqhbfjPc40Dx2n6OFQ';
-  const mockUser = { id: 1, email: "test@example.com", full_name: "Mock Test User" };
-
-  const [token, setToken] = useState(mockToken);
-  const [user, setUser] = useState(mockUser);
+  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
-
-  useEffect(() => {
-    setInMemoryToken(mockToken);
-  }, []);
 
   /**
    * Log in user and fetch current profile details.

@@ -51,18 +51,14 @@ export const authService = {
    * Authenticates user using standard OAuth2 URL-encoded request body.
    */
   login: async (email, password) => {
-    const params = new URLSearchParams();
-    params.append('username', email); // FastAPI OAuth2 Form standard uses 'username'
-    params.append('password', password);
-
-    const response = await api.post('/auth/login', params, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
+    const formData = new URLSearchParams();
+    formData.append('username', email);
+    formData.append('password', password);
+    const response = await api.post('/auth/login', formData, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
-    return response.data; // Returns { access_token, token_type }
+    return response.data;
   },
-
   /**
    * Fetches current authenticated user profile.
    */
@@ -146,6 +142,16 @@ export const budgetService = {
       alert_at_percent: parseFloat(budgetData.alert_at_percent || 80.0),
       is_family_limit: !!budgetData.is_family_limit,
     });
+    return response.data;
+  },
+};
+
+export const insightService = {
+  /**
+   * Fetches unified spending insights summary.
+   */
+  getSummary: async () => {
+    const response = await api.get('/insights/summary');
     return response.data;
   },
 };

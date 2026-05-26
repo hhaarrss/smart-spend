@@ -6,18 +6,65 @@ registers all feature routers, and registers lifetime event handlers.
 """
 
 import os
+from pathlib import Path
+from dotenv import load_dotenv, find_dotenv
+
+def mask_url(url: str | None) -> str:
+    """
+    Mask sensitive user credentials (like password) in the database connection URL.
+
+    Args:
+        url (str | None): The database connection URL to mask.
+
+    Returns:
+        str: The masked database URL or a placeholder if invalid/missing.
+    """
+    if not url:
+        return "None"
+    try:
+        if "@" in url:
+            parts = url.split("@")
+            prefix = parts[0]
+            suffix = parts[1]
+            if "://" in prefix:
+                scheme, auth = prefix.split("://", 1)
+                if ":" in auth:
+                    username, _ = auth.split(":", 1)
+                    return f"{scheme}://{username}:*****@{suffix}"
+                return f"{scheme}://*****@{suffix}"
+            return f"*****@{suffix}"
+        return "*****"
+    except Exception:
+        return "*****"
+
+# Find and load .env file from any directory
+dotenv_path = find_dotenv(usecwd=True)
+if not dotenv_path:
+    # Try parent directory
+    dotenv_path = str(Path(__file__).resolve().parent / '.env')
+load_dotenv(dotenv_path, override=True)
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Fallback: if DATABASE_URL is still not found, try the parent directory
+if not DATABASE_URL:
+    parent_dotenv_path = str(Path(__file__).resolve().parent.parent / '.env')
+    if os.path.exists(parent_dotenv_path):
+        dotenv_path = parent_dotenv_path
+        load_dotenv(dotenv_path, override=True)
+        DATABASE_URL = os.getenv("DATABASE_URL")
+
+print(f"Debug: Loaded env from: {dotenv_path} | DATABASE_URL: {mask_url(DATABASE_URL)}")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Import routers
 from routers.auth import router as auth_router
 from routers.transactions import router as transactions_router
 from routers.budget import router as budget_router
 from routers.family import router as family_router
+from routers.insights import router as insights_router
 
 # Import database engine for startup check
 from database import engine
@@ -53,6 +100,7 @@ app.include_router(auth_router)
 app.include_router(transactions_router)
 app.include_router(budget_router)
 app.include_router(family_router)
+app.include_router(insights_router)
 
 
 @app.on_event("startup")

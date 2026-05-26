@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, PlusCircle, Wallet, LogOut, Menu, X, Landmark, UserCircle } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, Wallet, LogOut, Menu, X, Landmark, UserCircle, LineChart } from 'lucide-react';
 
 /**
  * Mobile-responsive navigation header with glassmorphism styling.
@@ -20,6 +20,7 @@ const Navbar = () => {
     { to: '/', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
     { to: '/add', label: 'Add Transaction', icon: <PlusCircle className="w-4 h-4" /> },
     { to: '/budget', label: 'Budget limits', icon: <Wallet className="w-4 h-4" /> },
+    { to: '/insights', label: 'Insights', icon: <LineChart className="w-4 h-4" /> },
   ];
 
   const activeClass = "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-indigo-600/25 border border-indigo-500/30 shadow-[0_0_15px_rgba(79,70,229,0.15)] transition-all";

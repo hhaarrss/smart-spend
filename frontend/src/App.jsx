@@ -8,6 +8,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AddTransaction from './pages/AddTransaction';
 import Budget from './pages/Budget';
+import Insights from './pages/Insights';
 
 /**
  * Global authenticated page layout structure.
@@ -62,6 +63,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Budget />
+                </Layout>
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/insights" 
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Insights />
                 </Layout>
               </ProtectedRoute>
             } 
