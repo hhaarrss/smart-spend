@@ -16,13 +16,42 @@ export const useAuth = () => {
 
 /**
  * Provider component to wrap the React application tree.
- * Retains JWT state in-memory only.
+ * Retains JWT state in localStorage to persist across refreshes.
  */
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(() => {
+    const savedToken = localStorage.getItem('jwt_token');
+    if (savedToken) {
+      setInMemoryToken(savedToken);
+      return savedToken;
+    }
+    return null;
+  });
+
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem('user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
+
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState(null);
+
+  // Verify stored session on mount
+  useEffect(() => {
+    const verifySession = async () => {
+      if (token) {
+        try {
+          const profile = await authService.getMe();
+          setUser(profile);
+          localStorage.setItem('user', JSON.stringify(profile));
+        } catch (err) {
+          // Stored token is invalid or expired
+          logout();
+        }
+      }
+    };
+    verifySession();
+  }, []);
 
   /**
    * Log in user and fetch current profile details.
@@ -33,14 +62,15 @@ export const AuthProvider = ({ children }) => {
     try {
       const data = await authService.login(email, password);
       const accessToken = data.access_token;
-      
-      // Store in memory state
-      setToken(accessToken);
+      // Store in memory state immediately before other state updates
       setInMemoryToken(accessToken);
+      setToken(accessToken);
+      localStorage.setItem('jwt_token', accessToken);
 
       // Load user profile details
       const profile = await authService.getMe();
       setUser(profile);
+      localStorage.setItem('user', JSON.stringify(profile));
       setLoading(false);
       return profile;
     } catch (err) {
@@ -52,12 +82,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   /**
-   * Log out user, wiping memory variables.
+   * Log out user, wiping memory variables and localStorage.
    */
   const logout = () => {
     setToken(null);
     setUser(null);
     setInMemoryToken(null);
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('user');
   };
 
   const value = {

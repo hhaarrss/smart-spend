@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Variable to store the JWT token in memory (Hardcoded mock token)
-let inMemoryToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QGV4YW1wbGUuY29tIiwidXNlcl9pZCI6MSwiZXhwIjoxNzc5Nzg0MDkxfQ.is4ui-kAEC2y5OvUqMVgTazOTzqhbfjPc40Dx2n6OFQ';
+// Variable to store the JWT token in memory
+let inMemoryToken = null;
 
 /**
  * Sets the active in-memory access token.

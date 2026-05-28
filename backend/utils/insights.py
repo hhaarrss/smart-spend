@@ -245,14 +245,20 @@ async def get_budget_alerts(user_id: int, db: AsyncSession) -> List[Dict[str, An
     alerts = []
     for b in budgets:
         spent = spent_totals.get(b.category.lower(), 0.0)
-        pct = (spent / b.monthly_limit) * 100
+        limit_val = float(b.monthly_limit) if b.monthly_limit else 0.0
+
+        # Guard against division by zero
+        if limit_val <= 0:
+            continue
+
+        pct = (spent / limit_val) * 100
         
         # Trigger alert if spending is greater than or equal to configured alert percentage (defaults to 80%)
-        if pct >= b.alert_at_percent:
+        if pct >= (b.alert_at_percent or 80.0):
             alerts.append({
                 "category": b.category,
                 "spent": round(spent, 2),
-                "limit": float(b.monthly_limit),
+                "limit": limit_val,
                 "percent": round(pct, 2)
             })
 

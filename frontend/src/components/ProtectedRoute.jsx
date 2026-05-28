@@ -7,6 +7,12 @@ import { useAuth } from '../context/AuthContext';
  * Redirects to /login if the user is not authenticated.
  */
 const ProtectedRoute = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
   return children;
 };
 

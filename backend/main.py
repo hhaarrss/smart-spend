@@ -72,7 +72,6 @@ from database import engine
 # App Configuration
 APP_ENV = os.getenv("APP_ENV", "development")
 APP_PORT = int(os.getenv("APP_PORT", "8000"))
-ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
 
 # Create FastAPI Instance
 app = FastAPI(
@@ -87,6 +86,13 @@ app = FastAPI(
 )
 
 # Set up CORS middleware
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -94,6 +100,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Global exception handler to ensure 500 errors return proper JSON
+# (prevents bare 500s from stripping CORS headers in the browser)
+from fastapi import Request
+from fastapi.responses import JSONResponse
+import traceback as tb
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Catch-all handler for unhandled exceptions.
+    Returns a JSON response so CORSMiddleware can attach headers properly.
+    """
+    print(f"[UNHANDLED ERROR] {request.method} {request.url}")
+    tb.print_exception(type(exc), exc, exc.__traceback__)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {str(exc)}"},
+    )
+
 
 # Register routers
 app.include_router(auth_router)

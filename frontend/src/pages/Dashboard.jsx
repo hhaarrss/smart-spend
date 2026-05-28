@@ -31,33 +31,58 @@ const Dashboard = () => {
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
-    setCurrentMonthStr(`${yyyy}-${mm}`);
+    const monthStr = `${yyyy}-${mm}`;
+    setCurrentMonthStr(monthStr);
     setMonthName(now.toLocaleString('default', { month: 'long', year: 'numeric' }));
 
-    loadDashboardData(`${yyyy}-${mm}`);
+    loadDashboardData(monthStr);
+
+    // Poll for new transactions in background every 5 seconds
+    const intervalId = setInterval(() => {
+      loadDashboardData(monthStr, false);
+    }, 5000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
-  const loadDashboardData = async (monthStr) => {
-    setLoading(true);
+  const loadDashboardData = async (monthStr, showLoading = true) => {
+    if (showLoading) setLoading(true);
     setError('');
     try {
       // Calculate start and end date of current month
+      // Use plain date strings to avoid local timezone → UTC shifting
       const [year, month] = monthStr.split('-').map(Number);
-      const firstDay = new Date(year, month - 1, 1).toISOString();
-      const lastDay = new Date(year, month, 0, 23, 59, 59, 999).toISOString();
+      const lastDayOfMonth = new Date(year, month, 0).getDate();
+      const mm = String(month).padStart(2, '0');
+      const firstDay = `${year}-${mm}-01T00:00:00`;
+      const lastDay = `${year}-${mm}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59`;
+
+      console.log('[Dashboard] Fetching transactions:', { firstDay, lastDay });
 
       // Parallel API calls for performance
-      const [txs, budgetLimits] = await Promise.all([
+      const [txsRaw, budgetLimitsRaw] = await Promise.all([
         transactionService.listTransactions({ start_date: firstDay, end_date: lastDay }),
         budgetService.getBudgets()
       ]);
 
+      // Handle both array responses and wrapped { data: [...] } responses
+      const txs = Array.isArray(txsRaw) ? txsRaw : (txsRaw?.data || txsRaw?.transactions || []);
+      const budgetLimits = Array.isArray(budgetLimitsRaw) ? budgetLimitsRaw : (budgetLimitsRaw?.data || []);
+
+      console.log('[Dashboard] Raw API response type:', typeof txsRaw, Array.isArray(txsRaw));
+      console.log('[Dashboard] Transactions resolved:', txs.length, 'items');
+      console.log('[Dashboard] First transaction sample:', txs[0] || 'NONE');
+      console.log('[Dashboard] Budgets resolved:', budgetLimits.length, 'items');
+
       setTransactions(txs);
       setBudgets(budgetLimits);
-      setLoading(false);
+      if (showLoading) setLoading(false);
     } catch (err) {
-      setLoading(false);
-      setError('Could not load dashboard data. Check backend connection.');
+      console.error('[Dashboard] Error loading data:', err);
+      console.error('[Dashboard] Error response:', err.response?.data);
+      console.error('[Dashboard] Error status:', err.response?.status);
+      if (showLoading) setLoading(false);
+      setError(`Dashboard load error: ${err.response?.data?.detail || err.message || 'Check backend connection.'}`);
     }
   };
 
@@ -174,6 +199,14 @@ const Dashboard = () => {
           <span className="text-xs font-semibold text-slate-300">Live Backend Synchronized</span>
         </div>
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Grid: 4 Top Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

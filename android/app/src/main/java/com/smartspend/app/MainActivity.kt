@@ -2,8 +2,10 @@ package com.smartspend.app
 
 import android.Manifest
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -12,17 +14,35 @@ import androidx.lifecycle.lifecycleScope
 import com.smartspend.app.databinding.ActivityMainBinding
 import kotlinx.coroutines.launch
 
+/**
+ * Main entry point for the SmartSpend Android companion app.
+ *
+ * Manages two UI states via ViewBinding:
+ * - Login screen: email/password form that authenticates against the FastAPI backend
+ * - Dashboard: shows sync stats, connection status, and actions (test SMS, logout)
+ *
+ * JWT tokens are persisted in SharedPreferences. If a valid token exists on launch,
+ * the login screen is skipped entirely.
+ */
 class MainActivity : ComponentActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var sharedPrefs: SharedPreferences
+
+    private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "total_synced" || key == "last_sms" || key == "jwt_token") {
+            updateDashboard()
+        }
+    }
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val granted = permissions.entries.all { it.value }
         if (granted) {
-            Toast.makeText(this, "Permissions Granted", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "SMS Permissions Granted", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(this, "Permissions Denied", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "SMS Permissions Denied — auto-sync won't work", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -31,14 +51,251 @@ class MainActivity : ComponentActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        sharedPrefs = getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
+        sharedPrefs.registerOnSharedPreferenceChangeListener(prefsListener)
+
         checkPermissions()
-        updateUI()
+        setupListeners()
+        navigateToCorrectScreen()
+    }
+
+    // ──────────────── Navigation ────────────────
+
+    /**
+     * Checks SharedPreferences for an existing JWT token.
+     * If found, skips login and shows the dashboard directly.
+     */
+    private fun navigateToCorrectScreen() {
+        val token = sharedPrefs.getString("jwt_token", null)
+        if (token.isNullOrEmpty()) {
+            showLogin()
+        } else {
+            showDashboard()
+        }
+    }
+
+    /**
+     * Switches the visible section to the login form.
+     */
+    private fun showLogin() {
+        binding.loginSection.visibility = View.VISIBLE
+        binding.dashboardSection.visibility = View.GONE
+        // Clear input fields
+        binding.etEmail.text?.clear()
+        binding.etPassword.text?.clear()
+        binding.tvLoginError.visibility = View.GONE
+    }
+
+    /**
+     * Switches the visible section to the dashboard and refreshes displayed data.
+     */
+    private fun showDashboard() {
+        binding.loginSection.visibility = View.GONE
+        binding.dashboardSection.visibility = View.VISIBLE
+        updateDashboard()
+    }
+
+    // ──────────────── Listeners ────────────────
+
+    /**
+     * Wires up click listeners for all interactive elements.
+     */
+    private fun setupListeners() {
+        binding.btnLogin.setOnClickListener {
+            performLogin()
+        }
 
         binding.btnTestSms.setOnClickListener {
             sendTestSms()
         }
+
+        binding.btnLogout.setOnClickListener {
+            performLogout()
+        }
     }
 
+    // ──────────────── Login ────────────────
+
+    /**
+     * Validates input fields and calls the /auth/login endpoint.
+     * On success, stores the JWT token and user email in SharedPreferences
+     * and transitions to the dashboard.
+     */
+    private fun performLogin() {
+        val email = binding.etEmail.text.toString().trim()
+        val password = binding.etPassword.text.toString().trim()
+
+        if (email.isEmpty() || password.isEmpty()) {
+            showLoginError("Please enter both email and password")
+            return
+        }
+
+        // Disable button and show loading state
+        binding.btnLogin.isEnabled = false
+        binding.btnLogin.text = getString(R.string.btn_logging_in)
+        binding.tvLoginError.visibility = View.GONE
+
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitClient.apiService.login(email, password)
+
+                runOnUiThread {
+                    if (response.isSuccessful) {
+                        val loginResponse = response.body()
+                        if (loginResponse != null) {
+                            // Persist token and email
+                            sharedPrefs.edit()
+                                .putString("jwt_token", loginResponse.access_token)
+                                .putString("user_email", email)
+                                .apply()
+
+                            Toast.makeText(this@MainActivity, "Login successful!", Toast.LENGTH_SHORT).show()
+                            showDashboard()
+                        } else {
+                            showLoginError("Empty response from server")
+                        }
+                    } else {
+                        val errorMsg = when (response.code()) {
+                            401 -> "Incorrect email or password"
+                            422 -> "Invalid request format"
+                            else -> "Login failed: ${response.code()}"
+                        }
+                        showLoginError(errorMsg)
+                    }
+
+                    // Reset button state
+                    binding.btnLogin.isEnabled = true
+                    binding.btnLogin.text = getString(R.string.btn_login)
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    showLoginError("Connection error: ${e.localizedMessage}")
+                    binding.btnLogin.isEnabled = true
+                    binding.btnLogin.text = getString(R.string.btn_login)
+                }
+            }
+        }
+    }
+
+    /**
+     * Displays an error message on the login form.
+     */
+    private fun showLoginError(message: String) {
+        binding.tvLoginError.text = message
+        binding.tvLoginError.visibility = View.VISIBLE
+    }
+
+    // ──────────────── Dashboard ────────────────
+
+    /**
+     * Reads stats from SharedPreferences and updates all dashboard UI elements.
+     */
+    private fun updateDashboard() {
+        val lastSms = sharedPrefs.getString("last_sms", getString(R.string.label_no_sms))
+        val totalSynced = sharedPrefs.getInt("total_synced", 0)
+        val userEmail = sharedPrefs.getString("user_email", "—")
+        val token = sharedPrefs.getString("jwt_token", "")
+
+        binding.tvLastSms.text = lastSms
+        binding.tvTotalSynced.text = totalSynced.toString()
+        binding.tvUserEmail.text = userEmail
+
+        // Connection status based on token presence
+        if (!token.isNullOrEmpty()) {
+            binding.tvStatus.text = getString(R.string.status_connected)
+            binding.viewStatusDot.setBackgroundColor(
+                ContextCompat.getColor(this, R.color.emerald_success)
+            )
+        } else {
+            binding.tvStatus.text = getString(R.string.status_disconnected)
+            binding.viewStatusDot.setBackgroundColor(
+                ContextCompat.getColor(this, R.color.rose_error)
+            )
+        }
+    }
+
+    // ──────────────── Test SMS ────────────────
+
+    /**
+     * Sends a hardcoded HDFC bank SMS to the backend using the stored JWT token.
+     * Handles 401 by clearing the token and switching back to login.
+     */
+    private fun sendTestSms() {
+        val token = sharedPrefs.getString("jwt_token", "") ?: ""
+
+        if (token.isEmpty()) {
+            Toast.makeText(this, "Not authenticated — please login first", Toast.LENGTH_SHORT).show()
+            showLogin()
+            return
+        }
+
+        val testSms = "ICICI Bank Acct XX debited for Rs 10.00 on 27-May-26; pratiktod*** credited. UPI:***** Call 18002662 for dispute."
+        val testSender = "ICICIB"
+
+        binding.btnTestSms.isEnabled = false
+
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitClient.apiService.ingestSms(
+                    "Bearer $token",
+                    SmsPayload(testSms, testSender)
+                )
+                runOnUiThread {
+                    if (response.isSuccessful) {
+                        val respBody = response.body()
+                        if (respBody != null && respBody.success) {
+                            // Update local stats
+                            val newCount = sharedPrefs.getInt("total_synced", 0) + 1
+                            sharedPrefs.edit()
+                                .putString("last_sms", testSms)
+                                .putInt("total_synced", newCount)
+                                .apply()
+
+                            Toast.makeText(this@MainActivity, "Test SMS synced successfully!", Toast.LENGTH_LONG).show()
+                            updateDashboard()
+                        } else {
+                            val errMsg = respBody?.message ?: "Duplicate transaction detected"
+                            Toast.makeText(this@MainActivity, errMsg, Toast.LENGTH_LONG).show()
+                        }
+                    } else if (response.code() == 401) {
+                        // Token expired — clear and redirect to login
+                        Toast.makeText(this@MainActivity, "Session expired — please login again", Toast.LENGTH_LONG).show()
+                        sharedPrefs.edit().remove("jwt_token").remove("user_email").apply()
+                        showLogin()
+                    } else {
+                        Toast.makeText(this@MainActivity, "Failed: ${response.code()} ${response.message()}", Toast.LENGTH_LONG).show()
+                    }
+                    binding.btnTestSms.isEnabled = true
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(this@MainActivity, "Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                    binding.btnTestSms.isEnabled = true
+                }
+            }
+        }
+    }
+
+    // ──────────────── Logout ────────────────
+
+    /**
+     * Clears all stored credentials and navigates back to the login screen.
+     */
+    private fun performLogout() {
+        sharedPrefs.edit()
+            .remove("jwt_token")
+            .remove("user_email")
+            .apply()
+
+        Toast.makeText(this, "Logged out", Toast.LENGTH_SHORT).show()
+        showLogin()
+    }
+
+    // ──────────────── Permissions ────────────────
+
+    /**
+     * Requests SMS permissions if not already granted.
+     */
     private fun checkPermissions() {
         val permissions = arrayOf(
             Manifest.permission.RECEIVE_SMS,
@@ -54,51 +311,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun updateUI() {
-        val sharedPrefs = getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
-        val lastSms = sharedPrefs.getString("last_sms", "No SMS received yet")
-        val totalSynced = sharedPrefs.getInt("total_synced", 0)
-        val token = sharedPrefs.getString("jwt_token", "")
-
-        binding.tvLastSms.text = lastSms
-        binding.tvTotalSynced.text = "Total Transactions Synced: $totalSynced"
-        binding.tvLoginStatus.text = if (token.isNullOrEmpty()) "Login: Not logged in" else "Login: Logged in"
-        binding.tvStatus.text = "Status: Connected" // Simple static status for now
-    }
-
-    private fun sendTestSms() {
-        val sharedPrefs = getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
-
-        // Always set fresh token
-        val freshToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0QGV4YW1wbGUuY29tIiwidXNlcl9pZCI6MSwiZXhwIjoxNzc5Nzk1NDg3fQ.Z9o5Vnkqrys_QnhmtGCr1O87-CTEs2Oayy_4hTihE_Q"
-        sharedPrefs.edit().putString("jwt_token", freshToken).apply()
-
-        val testSms = "HDFC Bank: Rs.450.00 debited from A/c XX1234 on 26-05-26. Info: SWIGGY. Avl Bal: Rs.12,340.00"
-        val testSender = "HDFCBK"
-
-        lifecycleScope.launch {
-            try {
-                val response = RetrofitClient.apiService.ingestSms(
-                    "Bearer $freshToken",
-                    SmsPayload(testSms, testSender)
-                )
-                runOnUiThread {
-                    if (response.isSuccessful) {
-                        Toast.makeText(this@MainActivity, "Success! ${response.message()}", Toast.LENGTH_LONG).show()
-                    } else {
-                        Toast.makeText(this@MainActivity, "Failed: ${response.code()} ${response.message()}", Toast.LENGTH_LONG).show()
-                    }
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    Toast.makeText(this@MainActivity, "Failed: ${e.message}", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
+    override fun onDestroy() {
+        super.onDestroy()
+        sharedPrefs.unregisterOnSharedPreferenceChangeListener(prefsListener)
     }
 
     override fun onResume() {
         super.onResume()
-        updateUI()
+        // Re-check token validity on resume (token may have been cleared by SmsReceiver)
+        val token = sharedPrefs.getString("jwt_token", null)
+        if (token.isNullOrEmpty() && binding.dashboardSection.visibility == View.VISIBLE) {
+            showLogin()
+        } else if (!token.isNullOrEmpty() && binding.dashboardSection.visibility == View.VISIBLE) {
+            updateDashboard()
+        }
     }
 }

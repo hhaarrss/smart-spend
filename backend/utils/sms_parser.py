@@ -138,6 +138,72 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
 
     tx_type = "debit" if is_debit else "credit"
 
+    # ── ICICI-specific patterns (early return) ──
+    # Format 1 (Debit): "ICICI Bank Acct XX373 debited for Rs 5.00 on 28-May-26; pratiktodkar817 credited. UPI:..."
+    # Format 2 (Credit): "credited with Rs 160.00 on 28-May-26 from BHAVESH GAUTAM . UPI:...-ICICI Bank."
+    if bank == "ICICI":
+        icici_debit = "debited" in sms_lower
+        icici_credit = "credited with" in sms_lower
+
+        if icici_debit or icici_credit:
+            # Account: extract only digits after XX (e.g. XX373 → 373)
+            acct_match = re.search(r"(?:Acct|a/c|ac)\s*(?:no\.?\s*)?XX(\d+)", sms, re.IGNORECASE)
+            acct = acct_match.group(1) if acct_match else "0000"
+
+            # Date: DD-Mon-YY format (e.g. 28-May-26)
+            date_match = re.search(r"on\s+(\d{1,2}-[A-Za-z]{3}-\d{2,4})", sms, re.IGNORECASE)
+            date_str = date_match.group(1) if date_match else None
+            parsed_date = parse_sms_date(date_str) if date_str else datetime.now()
+
+            # Balance (generic extraction)
+            bal = None
+            bal_match = re.search(
+                r"(?:bal|balance|avail\.?\s*bal|avl\.?\s*bal|available\s*bal)[\s:=\-]*(?:rs\.?|inr)?\s*([\d,]+\.?\d*)",
+                sms_lower
+            )
+            if bal_match:
+                try:
+                    bal = clean_amount(bal_match.group(1))
+                except ValueError:
+                    pass
+
+            if icici_debit:
+                # Amount after "debited for Rs"
+                amt_match = re.search(r"debited\s+for\s+Rs\.?\s*([\d,]+\.?\d*)", sms, re.IGNORECASE)
+                # Merchant: word(s) before "credited", after semicolon
+                # "...on 28-May-26; pratiktodkar817 credited."
+                merch_match = re.search(r";\s*(.+?)\s+credited", sms, re.IGNORECASE)
+                merch = merch_match.group(1).strip() if merch_match else "Unknown Merchant"
+
+                if amt_match:
+                    return {
+                        "amount": clean_amount(amt_match.group(1)),
+                        "type": "debit",
+                        "account_last4": acct,
+                        "merchant": merch,
+                        "balance": bal,
+                        "date": parsed_date,
+                        "bank": bank,
+                    }
+
+            if icici_credit:
+                # Amount after "credited with Rs"
+                amt_match = re.search(r"credited\s+with\s+Rs\.?\s*([\d,]+\.?\d*)", sms, re.IGNORECASE)
+                # Merchant: text after "from" up to period, UPI ref, or end
+                merch_match = re.search(r"from\s+(.+?)\s*(?:\.|UPI|$)", sms, re.IGNORECASE)
+                merch = merch_match.group(1).strip() if merch_match else "Unknown Sender"
+
+                if amt_match:
+                    return {
+                        "amount": clean_amount(amt_match.group(1)),
+                        "type": "credit",
+                        "account_last4": acct,
+                        "merchant": merch,
+                        "balance": bal,
+                        "date": parsed_date,
+                        "bank": bank,
+                    }
+
     # Extract Account Last 4
     account_match = re.search(
         r"(?:a/c|ac|account|card|ending|xx)\s*(?:no\.?\s*)?(?:ending\s*)?(\d{4})",
