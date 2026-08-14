@@ -59,7 +59,7 @@ interface BackendService {
     ): Response<SmsIngestionResponse>
 
     companion object {
-        private const val BASE_URL = "http://10.214.158.167:8000"
+        private const val BASE_URL = "https://expense-tracker-production-b8ed.up.railway.app/"
 
         /**
          * Creates a configured Retrofit BackendService instance.

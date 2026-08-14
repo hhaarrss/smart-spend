@@ -25,7 +25,6 @@ def upgrade() -> None:
     sa.Column('name', sa.String(length=100), nullable=False),
     sa.Column('admin_user_id', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['admin_user_id'], ['users.id'], ondelete='SET NULL'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_family_groups_id'), 'family_groups', ['id'], unique=False)
@@ -41,6 +40,12 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
     op.create_index(op.f('ix_users_id'), 'users', ['id'], unique=False)
+    op.create_foreign_key(
+        'fk_family_groups_admin_user_id_users',
+        'family_groups', 'users',
+        ['admin_user_id'], ['id'],
+        ondelete='SET NULL'
+    )
     op.create_table('budget_limits',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
@@ -58,13 +63,17 @@ def upgrade() -> None:
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('amount', sa.Numeric(precision=12, scale=2), nullable=False),
     sa.Column('type', sa.String(length=20), nullable=False),
-    sa.Column('category', sa.String(length=50), nullable=False),
-    sa.Column('merchant', sa.String(length=100), nullable=True),
+    sa.Column('category', sa.String(length=100), nullable=False),
+    sa.Column('merchant', sa.String(length=255), nullable=True),
+    sa.Column('subcategory', sa.String(length=100), nullable=True),
+    sa.Column('raw_sms', sa.Text(), nullable=True),
+    sa.Column('upi_ref', sa.String(length=100), nullable=True),
+    sa.Column('confidence', sa.String(length=50), nullable=True),
     sa.Column('bank', sa.String(length=50), nullable=True),
     sa.Column('account_last4', sa.String(length=4), nullable=True),
     sa.Column('date', sa.DateTime(timezone=True), nullable=False),
     sa.Column('hash_fingerprint', sa.String(length=64), nullable=True),
-    sa.Column('source', sa.String(length=20), nullable=False),
+    sa.Column('source', sa.String(length=100), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')

@@ -3,7 +3,7 @@ Pydantic schemas for Transaction verification and response serialization.
 """
 
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
@@ -12,15 +12,15 @@ class TransactionBase(BaseModel):
 
     amount: float = Field(..., gt=0, description="Amount must be positive.")
     type: str = Field(..., description="Transaction type: 'debit' or 'credit'.")
-    category: str = Field(..., max_length=50, description="Spending or income category.")
-    merchant: Optional[str] = Field(None, max_length=100, description="Name of the merchant.")
+    category: str = Field(..., max_length=100, description="Spending or income category.")
+    merchant: Optional[str] = Field(None, max_length=255, description="Name of the merchant.")
     bank: Optional[str] = Field(None, max_length=50, description="Name of the banking institution.")
     account_last4: Optional[str] = Field(
         None, min_length=2, max_length=4, description="Last 2 to 4 digits/identifier of the account number."
     )
     date: datetime = Field(..., description="The transaction occurrence date and time.")
     source: str = Field(
-        "manual", description="Source of transaction registration: 'sms', 'aa', or 'manual'."
+        "manual", description="Source of transaction registration."
     )
 
     @field_validator("type")
@@ -37,8 +37,9 @@ class TransactionBase(BaseModel):
     def validate_source(cls, v: str) -> str:
         """Validates that source is one of the allowed platforms."""
         val = v.lower()
-        if val not in ("sms", "aa", "manual"):
-            raise ValueError("Source must be one of 'sms', 'aa', or 'manual'")
+        allowed_sources = {"sms", "aa", "manual", "merchant_db", "user_correction", "mcc_codes", "fallback"}
+        if val not in allowed_sources:
+            raise ValueError(f"Source must be one of {allowed_sources}")
         return val
 
 
@@ -54,6 +55,10 @@ class TransactionResponse(TransactionBase):
     id: int
     user_id: int
     hash_fingerprint: Optional[str] = None
+    subcategory: Optional[str] = None
+    raw_sms: Optional[str] = None
+    upi_ref: Optional[str] = None
+    confidence: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -65,3 +70,22 @@ class TransactionSummaryResponse(BaseModel):
     daily: Dict[str, float] = Field(default_factory=dict, description="Daily spending/income aggregates.")
     monthly: Dict[str, float] = Field(default_factory=dict, description="Monthly spending/income aggregates.")
     yearly: Dict[str, float] = Field(default_factory=dict, description="Yearly spending/income aggregates.")
+
+
+class SMSRequest(BaseModel):
+    """Schema for single incoming SMS parsing requests."""
+    sms_text: str = Field(..., description="Raw SMS content sent from mobile client.")
+
+
+class BatchSMSRequest(BaseModel):
+    """Schema for batch incoming SMS parsing requests."""
+    sms_list: List[str] = Field(..., description="List of raw SMS contents.")
+
+
+class CorrectionRequest(BaseModel):
+    """Schema for transaction re-categorization correction requests."""
+    transaction_id: int = Field(..., description="Target transaction ID.")
+    merchant_raw: str = Field(..., description="Raw merchant name to correct future categorizations.")
+    new_category: str = Field(..., description="Corrected category name.")
+    subcategory: Optional[str] = Field(None, description="Optional corrected subcategory.")
+    display_name: Optional[str] = Field(None, description="Optional clean merchant name.")

@@ -6,6 +6,7 @@ Handles transaction creation, filtering, duplicate prevention, and aggregate sum
 
 import calendar
 import hashlib
+import re
 from datetime import datetime, timezone
 from typing import Optional, List, Dict
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -15,11 +16,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models.transaction import Transaction
 from models.user import User
-from schemas.transaction import TransactionCreate, TransactionResponse, TransactionSummaryResponse
+from schemas.transaction import (
+    TransactionCreate,
+    TransactionResponse,
+    TransactionSummaryResponse,
+    SMSRequest,
+    BatchSMSRequest,
+    CorrectionRequest,
+)
 from schemas.sms import SMSIngestionRequest, SMSIngestionResponse
 from utils.sms_parser import parse_sms
 from utils.categorizer import categorize_merchant
 from utils.dependencies import get_current_user
+from categorizer.transaction_categorizer import (
+    process_upi_sms,
+    process_batch,
+    save_user_correction,
+)
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
@@ -116,6 +129,8 @@ async def list_transactions(
     end_date: Optional[datetime] = Query(None, description="End date for range filter"),
     type: Optional[str] = Query(None, description="Filter by transaction type ('debit' or 'credit')"),
     user_id: Optional[int] = Query(None, description="Filter by user ID (admin/family only)"),
+    limit: int = Query(50, description="Max number of transactions to retrieve"),
+    offset: int = Query(0, description="Offset for pagination"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> List[Transaction]:
@@ -129,6 +144,8 @@ async def list_transactions(
         end_date (Optional[datetime]): To date.
         type (Optional[str]): Filter by transaction type ('debit' or 'credit').
         user_id (Optional[int]): Query for another user's transactions.
+        limit (int): Pagination limit.
+        offset (int): Pagination offset.
         current_user (User): Authenticated user.
         db (AsyncSession): Database session.
 
@@ -171,6 +188,11 @@ async def list_transactions(
         conditions.append(Transaction.type == type.lower())
 
     query = select(Transaction).where(and_(*conditions)).order_by(Transaction.date.desc())
+    if offset:
+        query = query.offset(offset)
+    if limit:
+        query = query.limit(limit)
+        
     result = await db.execute(query)
     
     return list(result.scalars().all())
@@ -303,3 +325,222 @@ async def ingest_sms(
         transaction=new_tx,
         message="SMS ingested successfully"
     )
+
+@router.post(
+    "/parse-sms",
+    response_model=TransactionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Parse and save a single UPI transaction SMS",
+)
+async def parse_and_save_sms(
+    body: SMSRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Transaction:
+    """
+    Parses and categorizes a single incoming raw SMS transaction alert,
+    checks for duplicates, and saves it to the database.
+
+    Args:
+        body (SMSRequest): Inbound raw SMS message text.
+        db (AsyncSession): The database session.
+        current_user (User): Authenticated user.
+
+    Raises:
+        HTTPException: 422 Unprocessable Entity if parsing fails.
+
+    Returns:
+        Transaction: The saved or existing Transaction object.
+    """
+    result = process_upi_sms(body.sms_text)
+    if not result or result.get("amount") is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Could not parse transaction from SMS: {body.sms_text[:80]}"
+        )
+
+    # Parse date
+    tx_date = datetime.now(timezone.utc)
+    if result.get("date"):
+        for fmt in ("%d-%m-%y", "%d-%m-%Y", "%d/%m/%y", "%d/%m/%Y", "%d%b%y", "%d %b %y", "%d %b %Y"):
+            try:
+                cleaned_date = re.sub(r"\s+", " ", result["date"].strip())
+                parsed_dt = datetime.strptime(cleaned_date, fmt)
+                tx_date = parsed_dt.replace(tzinfo=timezone.utc)
+                break
+            except ValueError:
+                continue
+
+    # Generate unique fingerprint
+    raw_str = f"{result['amount']:.2f}:{tx_date.date().isoformat()}:{result.get('bank') or 'unknown'}"
+    fingerprint = hashlib.sha256(raw_str.encode("utf-8")).hexdigest()
+
+    # Check for duplicate
+    duplicate_query = select(Transaction).where(Transaction.hash_fingerprint == fingerprint)
+    dup_res = await db.execute(duplicate_query)
+    existing_tx = dup_res.scalars().first()
+    if existing_tx:
+        return existing_tx
+
+    # Create new transaction
+    transaction = Transaction(
+        user_id=current_user.id,
+        amount=result["amount"],
+        merchant=result.get("merchant"),
+        category=result.get("category") or "Miscellaneous",
+        subcategory=result.get("subcategory"),
+        type=result.get("type") or "debit",
+        upi_ref=result.get("upi_ref"),
+        raw_sms=body.sms_text,
+        source=result.get("source") or "sms",
+        confidence=result.get("confidence") or "none",
+        date=tx_date,
+        hash_fingerprint=fingerprint,
+        bank=result.get("bank"),
+    )
+
+    db.add(transaction)
+    await db.flush()
+    await db.commit()
+    return transaction
+
+
+@router.post(
+    "/parse-sms/batch",
+    status_code=status.HTTP_201_CREATED,
+    summary="Parse and save a batch of historical transaction SMS",
+)
+async def parse_and_save_batch(
+    body: BatchSMSRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """
+    Processes multiple SMS messages at once, typically on mobile application first launch.
+    Automatically filters duplicates and records successful creations.
+
+    Args:
+        body (BatchSMSRequest): List of raw SMS strings.
+        db (AsyncSession): The database session.
+        current_user (User): Authenticated user.
+
+    Returns:
+        dict: Summary of parsed, saved, and skipped items.
+    """
+    results = process_batch(body.sms_list)
+    saved = 0
+
+    for result in results:
+        if not result or result.get("amount") is None:
+            continue
+
+        tx_date = datetime.now(timezone.utc)
+        if result.get("date"):
+            for fmt in ("%d-%m-%y", "%d-%m-%Y", "%d/%m/%y", "%d/%m/%Y", "%d%b%y", "%d %b %y", "%d %b %Y"):
+                try:
+                    cleaned_date = re.sub(r"\s+", " ", result["date"].strip())
+                    parsed_dt = datetime.strptime(cleaned_date, fmt)
+                    tx_date = parsed_dt.replace(tzinfo=timezone.utc)
+                    break
+                except ValueError:
+                    continue
+
+        raw_str = f"{result['amount']:.2f}:{tx_date.date().isoformat()}:{result.get('bank') or 'unknown'}"
+        fingerprint = hashlib.sha256(raw_str.encode("utf-8")).hexdigest()
+
+        duplicate_query = select(Transaction).where(Transaction.hash_fingerprint == fingerprint)
+        dup_res = await db.execute(duplicate_query)
+        if dup_res.scalars().first():
+            continue
+
+        transaction = Transaction(
+            user_id=current_user.id,
+            amount=result["amount"],
+            merchant=result.get("merchant"),
+            category=result.get("category") or "Miscellaneous",
+            subcategory=result.get("subcategory"),
+            type=result.get("type") or "debit",
+            upi_ref=result.get("upi_ref"),
+            raw_sms=result.get("raw"),
+            source=result.get("source") or "sms",
+            confidence=result.get("confidence") or "none",
+            date=tx_date,
+            hash_fingerprint=fingerprint,
+            bank=result.get("bank"),
+        )
+        db.add(transaction)
+        saved += 1
+
+    if saved > 0:
+        await db.commit()
+
+    return {
+        "total_received": len(body.sms_list),
+        "total_saved": saved,
+        "skipped": len(body.sms_list) - saved,
+    }
+
+
+@router.patch(
+    "/{transaction_id}/recategorize",
+    status_code=status.HTTP_200_OK,
+    summary="Update transaction category and record user feedback correction",
+)
+async def recategorize_transaction(
+    transaction_id: int,
+    body: CorrectionRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """
+    Allows users to manually correct a transaction's category.
+    Updates the record in database and registers feedback correction for future auto-matching.
+
+    Args:
+        transaction_id (int): ID of the transaction to correct.
+        body (CorrectionRequest): Re-categorization details.
+        db (AsyncSession): The database session.
+        current_user (User): Authenticated user.
+
+    Raises:
+        HTTPException: 404 Not Found if transaction doesn't exist or doesn't belong to current user.
+
+    Returns:
+        dict: Success confirmation payload.
+    """
+    transaction_query = select(Transaction).where(
+        and_(
+            Transaction.id == transaction_id,
+            Transaction.user_id == current_user.id
+        )
+    )
+    res = await db.execute(transaction_query)
+    transaction = res.scalars().first()
+
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found"
+        )
+
+    transaction.category = body.new_category
+    transaction.subcategory = body.subcategory
+    transaction.source = "user_correction"
+    transaction.confidence = "high"
+
+    await db.commit()
+
+    # Save correction synchronously (local file writes)
+    save_user_correction(
+        merchant_raw=body.merchant_raw,
+        new_category=body.new_category,
+        subcategory=body.subcategory,
+        display_name=body.display_name,
+    )
+
+    return {
+        "transaction_id": transaction_id,
+        "category": body.new_category,
+        "subcategory": body.subcategory,
+        "message": "Category updated and correction saved ✅",
+    }

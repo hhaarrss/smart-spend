@@ -1,0 +1,2427 @@
+{
+    "_meta": {
+        "version": "1.0.0",
+        "description": "Top Indian UPI merchants with category mappings",
+        "total": 300,
+        "categories": [
+            "Food & Dining",
+            "Groceries",
+            "Shopping",
+            "Transportation",
+            "Fuel",
+            "Healthcare",
+            "Entertainment",
+            "Telecom & Recharge",
+            "Utilities & Bills",
+            "Education",
+            "Travel & Hotels",
+            "Finance & Insurance",
+            "Personal Care",
+            "Fitness & Wellness",
+            "Electronics",
+            "Miscellaneous"
+        ]
+    },
+    "merchants": [
+        {
+            "name": "Swiggy",
+            "aliases": [
+                "SWIGGY",
+                "BUNDL TECH",
+                "BUNDL TECHNOLOGIES"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Food Delivery"
+        },
+        {
+            "name": "Zomato",
+            "aliases": [
+                "ZOMATO",
+                "ZOMATO LTD",
+                "ZOMATO MEDIA"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Food Delivery"
+        },
+        {
+            "name": "Blinkit",
+            "aliases": [
+                "BLINKIT",
+                "GROFERS",
+                "BLINK COMMERCE"
+            ],
+            "category": "Groceries",
+            "subcategory": "Quick Commerce"
+        },
+        {
+            "name": "McDonald's",
+            "aliases": [
+                "MCDONALDS",
+                "MCD",
+                "WESTLIFE",
+                "HARDCASTLE"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Fast Food"
+        },
+        {
+            "name": "Domino's",
+            "aliases": [
+                "DOMINOS",
+                "DOMINO",
+                "JUBILANT FOODWORKS",
+                "JUBILANT FOOD"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Fast Food"
+        },
+        {
+            "name": "KFC",
+            "aliases": [
+                "KFC",
+                "YUMRESTAURANTS",
+                "DEVYANI"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Fast Food"
+        },
+        {
+            "name": "Pizza Hut",
+            "aliases": [
+                "PIZZA HUT",
+                "PIZZAHUT",
+                "DEVYANI INTERNATIONAL"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Fast Food"
+        },
+        {
+            "name": "Burger King",
+            "aliases": [
+                "BURGER KING",
+                "BURGERKING",
+                "RESTAURANT BRANDS"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Fast Food"
+        },
+        {
+            "name": "Starbucks",
+            "aliases": [
+                "STARBUCKS",
+                "TATA STARBUCKS"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Cafe"
+        },
+        {
+            "name": "Cafe Coffee Day",
+            "aliases": [
+                "CAFE COFFEE DAY",
+                "CCD",
+                "COFFEE DAY"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Cafe"
+        },
+        {
+            "name": "Chaayos",
+            "aliases": [
+                "CHAAYOS"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Cafe"
+        },
+        {
+            "name": "Subway",
+            "aliases": [
+                "SUBWAY"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Fast Food"
+        },
+        {
+            "name": "Haldiram's",
+            "aliases": [
+                "HALDIRAMS",
+                "HALDIRAM"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Restaurant"
+        },
+        {
+            "name": "Barbeque Nation",
+            "aliases": [
+                "BARBEQUE NATION",
+                "BBQ NATION"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Restaurant"
+        },
+        {
+            "name": "Fassos",
+            "aliases": [
+                "FASSOS",
+                "REBEL FOODS",
+                "FAASOS"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Food Delivery"
+        },
+        {
+            "name": "Box8",
+            "aliases": [
+                "BOX8",
+                "DOTS DINERS"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Food Delivery"
+        },
+        {
+            "name": "EatFit",
+            "aliases": [
+                "EATFIT",
+                "CURE FOODS"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Food Delivery"
+        },
+        {
+            "name": "Licious",
+            "aliases": [
+                "LICIOUS",
+                "DELIGHTFUL GOURMET"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Meat & Seafood"
+        },
+        {
+            "name": "FreshMenu",
+            "aliases": [
+                "FRESHMENU"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Food Delivery"
+        },
+        {
+            "name": "Social",
+            "aliases": [
+                "SOCIAL OFFLINE",
+                "IMPRESARIO"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Restaurant"
+        },
+        {
+            "name": "BigBasket",
+            "aliases": [
+                "BIGBASKET",
+                "BIG BASKET",
+                "SUPERMARKET GROCERY"
+            ],
+            "category": "Groceries",
+            "subcategory": "Online Grocery"
+        },
+        {
+            "name": "Zepto",
+            "aliases": [
+                "ZEPTO",
+                "Kirana CLUB"
+            ],
+            "category": "Groceries",
+            "subcategory": "Quick Commerce"
+        },
+        {
+            "name": "DMart",
+            "aliases": [
+                "DMART",
+                "D MART",
+                "AVENUE SUPERMARTS",
+                "AVENUE SUPER"
+            ],
+            "category": "Groceries",
+            "subcategory": "Supermarket"
+        },
+        {
+            "name": "Reliance Fresh",
+            "aliases": [
+                "RELIANCE FRESH",
+                "RELIANCE RETAIL",
+                "SMART BAZAAR"
+            ],
+            "category": "Groceries",
+            "subcategory": "Supermarket"
+        },
+        {
+            "name": "More Retail",
+            "aliases": [
+                "MORE RETAIL",
+                "MORE SUPERMARKET",
+                "ADITYA BIRLA RETAIL"
+            ],
+            "category": "Groceries",
+            "subcategory": "Supermarket"
+        },
+        {
+            "name": "Spencer's",
+            "aliases": [
+                "SPENCERS",
+                "SPENCER'S RETAIL"
+            ],
+            "category": "Groceries",
+            "subcategory": "Supermarket"
+        },
+        {
+            "name": "Spar",
+            "aliases": [
+                "SPAR",
+                "MAX HYPERMARKET"
+            ],
+            "category": "Groceries",
+            "subcategory": "Supermarket"
+        },
+        {
+            "name": "Nature's Basket",
+            "aliases": [
+                "NATURES BASKET",
+                "NATURE BASKET"
+            ],
+            "category": "Groceries",
+            "subcategory": "Supermarket"
+        },
+        {
+            "name": "Dunzo",
+            "aliases": [
+                "DUNZO",
+                "DUNZO DIGITAL"
+            ],
+            "category": "Groceries",
+            "subcategory": "Quick Commerce"
+        },
+        {
+            "name": "JioMart",
+            "aliases": [
+                "JIOMART",
+                "JIO MART",
+                "RELIANCE JIO MART"
+            ],
+            "category": "Groceries",
+            "subcategory": "Online Grocery"
+        },
+        {
+            "name": "Amazon",
+            "aliases": [
+                "AMAZON",
+                "AMAZON SELLER",
+                "AMZN",
+                "AMAZON PAY"
+            ],
+            "category": "Shopping",
+            "subcategory": "E-commerce"
+        },
+        {
+            "name": "Flipkart",
+            "aliases": [
+                "FLIPKART",
+                "FK",
+                "EKART",
+                "FLKRT"
+            ],
+            "category": "Shopping",
+            "subcategory": "E-commerce"
+        },
+        {
+            "name": "Myntra",
+            "aliases": [
+                "MYNTRA",
+                "MYNTRA DESIGNS"
+            ],
+            "category": "Shopping",
+            "subcategory": "Fashion"
+        },
+        {
+            "name": "Meesho",
+            "aliases": [
+                "MEESHO",
+                "FASHNEAR"
+            ],
+            "category": "Shopping",
+            "subcategory": "E-commerce"
+        },
+        {
+            "name": "Nykaa",
+            "aliases": [
+                "NYKAA",
+                "FSN ECOMMERCE",
+                "NYKAA FASHION"
+            ],
+            "category": "Shopping",
+            "subcategory": "Beauty & Fashion"
+        },
+        {
+            "name": "Ajio",
+            "aliases": [
+                "AJIO",
+                "AJIO LIFE",
+                "RELIANCE AJIO"
+            ],
+            "category": "Shopping",
+            "subcategory": "Fashion"
+        },
+        {
+            "name": "Snapdeal",
+            "aliases": [
+                "SNAPDEAL",
+                "JASPER INFOTECH"
+            ],
+            "category": "Shopping",
+            "subcategory": "E-commerce"
+        },
+        {
+            "name": "Shopsy",
+            "aliases": [
+                "SHOPSY",
+                "SHOPSY FLIPKART"
+            ],
+            "category": "Shopping",
+            "subcategory": "E-commerce"
+        },
+        {
+            "name": "Croma",
+            "aliases": [
+                "CROMA",
+                "INFINITI RETAIL"
+            ],
+            "category": "Electronics",
+            "subcategory": "Electronics Store"
+        },
+        {
+            "name": "Reliance Digital",
+            "aliases": [
+                "RELIANCE DIGITAL",
+                "RDIGITAL"
+            ],
+            "category": "Electronics",
+            "subcategory": "Electronics Store"
+        },
+        {
+            "name": "Vijay Sales",
+            "aliases": [
+                "VIJAY SALES",
+                "VIJAYSALES"
+            ],
+            "category": "Electronics",
+            "subcategory": "Electronics Store"
+        },
+        {
+            "name": "Apple Store",
+            "aliases": [
+                "APPLE",
+                "APPLE INDIA",
+                "APPLE STORE"
+            ],
+            "category": "Electronics",
+            "subcategory": "Electronics Store"
+        },
+        {
+            "name": "Samsung",
+            "aliases": [
+                "SAMSUNG",
+                "SAMSUNG INDIA"
+            ],
+            "category": "Electronics",
+            "subcategory": "Electronics"
+        },
+        {
+            "name": "Shoppers Stop",
+            "aliases": [
+                "SHOPPERS STOP",
+                "SHOPPERSSTOP"
+            ],
+            "category": "Shopping",
+            "subcategory": "Department Store"
+        },
+        {
+            "name": "Lifestyle",
+            "aliases": [
+                "LIFESTYLE",
+                "LIFESTYLE STORE",
+                "LANDMARK"
+            ],
+            "category": "Shopping",
+            "subcategory": "Department Store"
+        },
+        {
+            "name": "Westside",
+            "aliases": [
+                "WESTSIDE",
+                "TRENT"
+            ],
+            "category": "Shopping",
+            "subcategory": "Fashion"
+        },
+        {
+            "name": "H&M",
+            "aliases": [
+                "H&M",
+                "H AND M",
+                "HM HENNES"
+            ],
+            "category": "Shopping",
+            "subcategory": "Fashion"
+        },
+        {
+            "name": "Zara",
+            "aliases": [
+                "ZARA",
+                "INDITEX"
+            ],
+            "category": "Shopping",
+            "subcategory": "Fashion"
+        },
+        {
+            "name": "Max Fashion",
+            "aliases": [
+                "MAX FASHION",
+                "MAX RETAIL",
+                "LANDMARK MAX"
+            ],
+            "category": "Shopping",
+            "subcategory": "Fashion"
+        },
+        {
+            "name": "Pantaloons",
+            "aliases": [
+                "PANTALOONS",
+                "PANTALOON",
+                "ADITYA BIRLA FASHION"
+            ],
+            "category": "Shopping",
+            "subcategory": "Fashion"
+        },
+        {
+            "name": "Ola",
+            "aliases": [
+                "OLA",
+                "ANI TECHNOLOGIES",
+                "OLA CABS"
+            ],
+            "category": "Transportation",
+            "subcategory": "Cab"
+        },
+        {
+            "name": "Uber",
+            "aliases": [
+                "UBER",
+                "UBER INDIA",
+                "UBER BV"
+            ],
+            "category": "Transportation",
+            "subcategory": "Cab"
+        },
+        {
+            "name": "Rapido",
+            "aliases": [
+                "RAPIDO",
+                "ROPPEN TRANSPORTATION"
+            ],
+            "category": "Transportation",
+            "subcategory": "Bike Taxi"
+        },
+        {
+            "name": "BluSmart",
+            "aliases": [
+                "BLUSMART",
+                "BLU SMART",
+                "LITHIUM URBAN"
+            ],
+            "category": "Transportation",
+            "subcategory": "Cab"
+        },
+        {
+            "name": "Meru Cabs",
+            "aliases": [
+                "MERU",
+                "MERU CABS",
+                "MERU TRAVEL"
+            ],
+            "category": "Transportation",
+            "subcategory": "Cab"
+        },
+        {
+            "name": "BMTC",
+            "aliases": [
+                "BMTC",
+                "BANGALORE METROPOLITAN TRANSPORT"
+            ],
+            "category": "Transportation",
+            "subcategory": "Bus"
+        },
+        {
+            "name": "DTC",
+            "aliases": [
+                "DTC",
+                "DELHI TRANSPORT"
+            ],
+            "category": "Transportation",
+            "subcategory": "Bus"
+        },
+        {
+            "name": "Mumbai Metro",
+            "aliases": [
+                "MUMBAI METRO",
+                "MMRDA",
+                "MAHA METRO"
+            ],
+            "category": "Transportation",
+            "subcategory": "Metro"
+        },
+        {
+            "name": "Delhi Metro",
+            "aliases": [
+                "DELHI METRO",
+                "DMRC",
+                "DMRC METRO"
+            ],
+            "category": "Transportation",
+            "subcategory": "Metro"
+        },
+        {
+            "name": "IRCTC",
+            "aliases": [
+                "IRCTC",
+                "INDIAN RAILWAYS",
+                "CRIS",
+                "RAILNET"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Train"
+        },
+        {
+            "name": "RedBus",
+            "aliases": [
+                "REDBUS",
+                "RED BUS",
+                "PILANI SOFT LABS"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Bus"
+        },
+        {
+            "name": "Yulu",
+            "aliases": [
+                "YULU",
+                "YULU BIKES"
+            ],
+            "category": "Transportation",
+            "subcategory": "EV Rental"
+        },
+        {
+            "name": "Bounce",
+            "aliases": [
+                "BOUNCE",
+                "WICKED RIDE"
+            ],
+            "category": "Transportation",
+            "subcategory": "Bike Rental"
+        },
+        {
+            "name": "FASTag",
+            "aliases": [
+                "FASTAG",
+                "FASTag",
+                "NETC FASTAG",
+                "NHAI"
+            ],
+            "category": "Transportation",
+            "subcategory": "Toll"
+        },
+        {
+            "name": "InDrive",
+            "aliases": [
+                "INDRIVE",
+                "IN DRIVE",
+                "SBER AUTO"
+            ],
+            "category": "Transportation",
+            "subcategory": "Cab"
+        },
+        {
+            "name": "BPCL",
+            "aliases": [
+                "BPCL",
+                "BHARAT PETROLEUM",
+                "BHARAT PETRO"
+            ],
+            "category": "Fuel",
+            "subcategory": "Petrol Pump"
+        },
+        {
+            "name": "HPCL",
+            "aliases": [
+                "HPCL",
+                "HINDUSTAN PETROLEUM",
+                "HP PETROL"
+            ],
+            "category": "Fuel",
+            "subcategory": "Petrol Pump"
+        },
+        {
+            "name": "IndianOil",
+            "aliases": [
+                "INDIAN OIL",
+                "IOCL",
+                "IOC PETROL",
+                "INDIANOIL"
+            ],
+            "category": "Fuel",
+            "subcategory": "Petrol Pump"
+        },
+        {
+            "name": "Reliance Petrol",
+            "aliases": [
+                "RELIANCE PETROL",
+                "RELIANCE PETROLEUM",
+                "RIL PETROL"
+            ],
+            "category": "Fuel",
+            "subcategory": "Petrol Pump"
+        },
+        {
+            "name": "Shell",
+            "aliases": [
+                "SHELL",
+                "SHELL INDIA",
+                "SHELL PETROL"
+            ],
+            "category": "Fuel",
+            "subcategory": "Petrol Pump"
+        },
+        {
+            "name": "Essar Oil",
+            "aliases": [
+                "ESSAR OIL",
+                "NAYARA ENERGY",
+                "NAYARA"
+            ],
+            "category": "Fuel",
+            "subcategory": "Petrol Pump"
+        },
+        {
+            "name": "Apollo Pharmacy",
+            "aliases": [
+                "APOLLO PHARMACY",
+                "APOLLO HEALTH",
+                "APOLLO MED"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Pharmacy"
+        },
+        {
+            "name": "Netmeds",
+            "aliases": [
+                "NETMEDS",
+                "NETMEDS MARKETPLACE",
+                "DADHA PHARMA"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Pharmacy"
+        },
+        {
+            "name": "1mg",
+            "aliases": [
+                "1MG",
+                "TATA 1MG",
+                "HEALTH ON TIME"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Pharmacy"
+        },
+        {
+            "name": "PharmEasy",
+            "aliases": [
+                "PHARMEASY",
+                "PHARM EASY",
+                "API HOLDINGS"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Pharmacy"
+        },
+        {
+            "name": "MedPlus",
+            "aliases": [
+                "MEDPLUS",
+                "MED PLUS",
+                "MEDPLUS HEALTH"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Pharmacy"
+        },
+        {
+            "name": "Practo",
+            "aliases": [
+                "PRACTO",
+                "PRACTO TECHNOLOGIES"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Doctor Consultation"
+        },
+        {
+            "name": "Bajaj Finserv Health",
+            "aliases": [
+                "BAJAJ HEALTH",
+                "BAJAJ FINSERV HEALTH"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Health Insurance"
+        },
+        {
+            "name": "Mfine",
+            "aliases": [
+                "MFINE",
+                "M FINE"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Doctor Consultation"
+        },
+        {
+            "name": "Lybrate",
+            "aliases": [
+                "LYBRATE"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Doctor Consultation"
+        },
+        {
+            "name": "Healthians",
+            "aliases": [
+                "HEALTHIANS",
+                "HEALTH ASSURANCE"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Diagnostics"
+        },
+        {
+            "name": "Dr. Lal PathLabs",
+            "aliases": [
+                "LAL PATHLABS",
+                "DR LAL",
+                "DR. LAL"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Diagnostics"
+        },
+        {
+            "name": "Thyrocare",
+            "aliases": [
+                "THYROCARE"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Diagnostics"
+        },
+        {
+            "name": "Max Healthcare",
+            "aliases": [
+                "MAX HEALTHCARE",
+                "MAX HOSPITAL",
+                "MAX SUPER SPECIALITY"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Hospital"
+        },
+        {
+            "name": "Fortis",
+            "aliases": [
+                "FORTIS",
+                "FORTIS HOSPITAL",
+                "FORTIS HEALTHCARE"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Hospital"
+        },
+        {
+            "name": "Apollo Hospital",
+            "aliases": [
+                "APOLLO HOSPITAL",
+                "APOLLO HOSPITALS"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Hospital"
+        },
+        {
+            "name": "Medanta",
+            "aliases": [
+                "MEDANTA",
+                "GLOBAL HEALTH"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Hospital"
+        },
+        {
+            "name": "Cipla",
+            "aliases": [
+                "CIPLA",
+                "CIPLA MED"
+            ],
+            "category": "Healthcare",
+            "subcategory": "Pharmacy"
+        },
+        {
+            "name": "Netflix",
+            "aliases": [
+                "NETFLIX",
+                "NETFLIX COM"
+            ],
+            "category": "Entertainment",
+            "subcategory": "OTT Streaming"
+        },
+        {
+            "name": "Hotstar",
+            "aliases": [
+                "HOTSTAR",
+                "DISNEY HOTSTAR",
+                "STAR STREAMING"
+            ],
+            "category": "Entertainment",
+            "subcategory": "OTT Streaming"
+        },
+        {
+            "name": "Amazon Prime",
+            "aliases": [
+                "AMAZON PRIME",
+                "PRIME VIDEO",
+                "AMZN PRIME"
+            ],
+            "category": "Entertainment",
+            "subcategory": "OTT Streaming"
+        },
+        {
+            "name": "Sony LIV",
+            "aliases": [
+                "SONY LIV",
+                "SONYLIV",
+                "SONY PICTURES"
+            ],
+            "category": "Entertainment",
+            "subcategory": "OTT Streaming"
+        },
+        {
+            "name": "ZEE5",
+            "aliases": [
+                "ZEE5",
+                "ZEE ENTERTAINMENT"
+            ],
+            "category": "Entertainment",
+            "subcategory": "OTT Streaming"
+        },
+        {
+            "name": "MX Player",
+            "aliases": [
+                "MX PLAYER",
+                "TIMES INTERNET"
+            ],
+            "category": "Entertainment",
+            "subcategory": "OTT Streaming"
+        },
+        {
+            "name": "Voot",
+            "aliases": [
+                "VOOT",
+                "VIACOM 18"
+            ],
+            "category": "Entertainment",
+            "subcategory": "OTT Streaming"
+        },
+        {
+            "name": "JioCinema",
+            "aliases": [
+                "JIO CINEMA",
+                "JIOCINEMA",
+                "JIO ENTERTAINM"
+            ],
+            "category": "Entertainment",
+            "subcategory": "OTT Streaming"
+        },
+        {
+            "name": "Spotify",
+            "aliases": [
+                "SPOTIFY",
+                "SPOTIFY AB"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Music"
+        },
+        {
+            "name": "Gaana",
+            "aliases": [
+                "GAANA",
+                "TIMES MUSIC",
+                "GAANA MUSIC"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Music"
+        },
+        {
+            "name": "JioSaavn",
+            "aliases": [
+                "JIOSAAVN",
+                "SAAVN",
+                "JIO SAAVN"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Music"
+        },
+        {
+            "name": "YouTube Premium",
+            "aliases": [
+                "YOUTUBE",
+                "YOUTUBE PREMIUM",
+                "GOOGLE YOUTUBE"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Streaming"
+        },
+        {
+            "name": "BookMyShow",
+            "aliases": [
+                "BOOKMYSHOW",
+                "BOOK MY SHOW",
+                "BIGTREE ENTERTAINMENT"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Movie Tickets"
+        },
+        {
+            "name": "PVR Cinemas",
+            "aliases": [
+                "PVR",
+                "PVR CINEMAS",
+                "PVR INOX",
+                "INOX"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Movie Tickets"
+        },
+        {
+            "name": "INOX",
+            "aliases": [
+                "INOX",
+                "FAME CINEMAS",
+                "PVR INOX"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Movie Tickets"
+        },
+        {
+            "name": "Lenskart",
+            "aliases": [
+                "LENSKART",
+                "JOHN JACOBS"
+            ],
+            "category": "Shopping",
+            "subcategory": "Eyewear"
+        },
+        {
+            "name": "Dream11",
+            "aliases": [
+                "DREAM11",
+                "DREAM 11",
+                "SPORTA TECHNOLOGIES"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Fantasy Sports"
+        },
+        {
+            "name": "MPL",
+            "aliases": [
+                "MPL",
+                "MOBILE PREMIER LEAGUE"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Gaming"
+        },
+        {
+            "name": "Steam",
+            "aliases": [
+                "STEAM",
+                "VALVE STEAM"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Gaming"
+        },
+        {
+            "name": "PlayStation",
+            "aliases": [
+                "PLAYSTATION",
+                "SONY PLAYSTATION",
+                "PSN"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Gaming"
+        },
+        {
+            "name": "Jio",
+            "aliases": [
+                "JIO",
+                "RELIANCE JIO",
+                "JIO INFOCOMM",
+                "JIOTEL"
+            ],
+            "category": "Telecom & Recharge",
+            "subcategory": "Mobile Recharge"
+        },
+        {
+            "name": "Airtel",
+            "aliases": [
+                "AIRTEL",
+                "BHARTI AIRTEL",
+                "AIRTEL BROADBAND"
+            ],
+            "category": "Telecom & Recharge",
+            "subcategory": "Mobile Recharge"
+        },
+        {
+            "name": "Vi (Vodafone Idea)",
+            "aliases": [
+                "VI",
+                "VODAFONE",
+                "IDEA",
+                "VODAFONE IDEA",
+                "IDEA CELLULAR"
+            ],
+            "category": "Telecom & Recharge",
+            "subcategory": "Mobile Recharge"
+        },
+        {
+            "name": "BSNL",
+            "aliases": [
+                "BSNL",
+                "BHARAT SANCHAR NIGAM"
+            ],
+            "category": "Telecom & Recharge",
+            "subcategory": "Mobile Recharge"
+        },
+        {
+            "name": "ACT Fibernet",
+            "aliases": [
+                "ACT FIBERNET",
+                "ACT BROADBAND",
+                "ATRIA CONVERGENCE"
+            ],
+            "category": "Telecom & Recharge",
+            "subcategory": "Broadband"
+        },
+        {
+            "name": "Hathway",
+            "aliases": [
+                "HATHWAY",
+                "HATHWAY CABLE"
+            ],
+            "category": "Telecom & Recharge",
+            "subcategory": "Broadband"
+        },
+        {
+            "name": "DEN Networks",
+            "aliases": [
+                "DEN NETWORKS",
+                "DEN BROADBAND"
+            ],
+            "category": "Telecom & Recharge",
+            "subcategory": "Cable TV"
+        },
+        {
+            "name": "Tata Play",
+            "aliases": [
+                "TATA PLAY",
+                "TATAPLAY",
+                "TATA SKY"
+            ],
+            "category": "Telecom & Recharge",
+            "subcategory": "DTH"
+        },
+        {
+            "name": "Dish TV",
+            "aliases": [
+                "DISH TV",
+                "DISHTV",
+                "DISH D2H",
+                "D2H"
+            ],
+            "category": "Telecom & Recharge",
+            "subcategory": "DTH"
+        },
+        {
+            "name": "Airtel DTH",
+            "aliases": [
+                "AIRTEL DTH",
+                "AIRTEL DIGITAL TV"
+            ],
+            "category": "Telecom & Recharge",
+            "subcategory": "DTH"
+        },
+        {
+            "name": "Videocon D2H",
+            "aliases": [
+                "VIDEOCON D2H",
+                "VIDEOCON DTH"
+            ],
+            "category": "Telecom & Recharge",
+            "subcategory": "DTH"
+        },
+        {
+            "name": "Tata Power",
+            "aliases": [
+                "TATA POWER",
+                "TATAPOWER",
+                "TPCL"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Electricity"
+        },
+        {
+            "name": "BESCOM",
+            "aliases": [
+                "BESCOM",
+                "BANGALORE ELECTRICITY"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Electricity"
+        },
+        {
+            "name": "MSEDCL",
+            "aliases": [
+                "MSEDCL",
+                "MAHADISCOM",
+                "MAHARASHTRA STATE ELECTRICITY"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Electricity"
+        },
+        {
+            "name": "BSES",
+            "aliases": [
+                "BSES",
+                "BSES RAJDHANI",
+                "BSES YAMUNA"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Electricity"
+        },
+        {
+            "name": "TNEB",
+            "aliases": [
+                "TNEB",
+                "TANGEDCO",
+                "TAMIL NADU ELECTRICITY"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Electricity"
+        },
+        {
+            "name": "CESC",
+            "aliases": [
+                "CESC",
+                "CESC LIMITED",
+                "CALCUTTA ELECTRIC"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Electricity"
+        },
+        {
+            "name": "ADANI ELECTRICITY",
+            "aliases": [
+                "ADANI ELECTRICITY",
+                "ADANI POWER",
+                "ADANI TORRENT"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Electricity"
+        },
+        {
+            "name": "Indraprastha Gas",
+            "aliases": [
+                "IGL",
+                "INDRAPRASTHA GAS",
+                "CITY GAS"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Gas"
+        },
+        {
+            "name": "Mahanagar Gas",
+            "aliases": [
+                "MAHANAGAR GAS",
+                "MGL",
+                "MAHANAGARGAS"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Gas"
+        },
+        {
+            "name": "Gujarat Gas",
+            "aliases": [
+                "GUJARAT GAS",
+                "GGL"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Gas"
+        },
+        {
+            "name": "BBMP",
+            "aliases": [
+                "BBMP",
+                "BRUHAT BENGALURU MAHANAGARA PALIKE"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Property Tax"
+        },
+        {
+            "name": "Mumbai Water",
+            "aliases": [
+                "MCGM",
+                "BMC",
+                "BRIHANMUMBAI MUNICIPAL"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Water Bill"
+        },
+        {
+            "name": "Paytm",
+            "aliases": [
+                "PAYTM",
+                "ONE97 COMMUNICATIONS",
+                "PAYTM PAYMENTS"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Wallet"
+        },
+        {
+            "name": "PhonePe",
+            "aliases": [
+                "PHONEPE",
+                "PHONE PE",
+                "PHONEPE PRIVATE"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Wallet"
+        },
+        {
+            "name": "Google Pay",
+            "aliases": [
+                "GOOGLE PAY",
+                "GOOGLEPAY",
+                "GPAY",
+                "GOOGLE PAYMENT"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Wallet"
+        },
+        {
+            "name": "MobiKwik",
+            "aliases": [
+                "MOBIKWIK",
+                "MOBI KWIK",
+                "ONE MOBIKWIK"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Wallet"
+        },
+        {
+            "name": "Freecharge",
+            "aliases": [
+                "FREECHARGE",
+                "FREE CHARGE",
+                "AXIS FREECHARGE"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Wallet"
+        },
+        {
+            "name": "BYJU'S",
+            "aliases": [
+                "BYJUS",
+                "BYJU",
+                "THINK & LEARN",
+                "THINK AND LEARN"
+            ],
+            "category": "Education",
+            "subcategory": "Ed-Tech"
+        },
+        {
+            "name": "Unacademy",
+            "aliases": [
+                "UNACADEMY",
+                "SORTING HAT TECHNOLOGIES"
+            ],
+            "category": "Education",
+            "subcategory": "Ed-Tech"
+        },
+        {
+            "name": "Vedantu",
+            "aliases": [
+                "VEDANTU",
+                "VEDANTU INNOVATIONS"
+            ],
+            "category": "Education",
+            "subcategory": "Ed-Tech"
+        },
+        {
+            "name": "upGrad",
+            "aliases": [
+                "UPGRAD",
+                "UP GRAD",
+                "DREAM EDU TECH"
+            ],
+            "category": "Education",
+            "subcategory": "Ed-Tech"
+        },
+        {
+            "name": "WhiteHat Jr",
+            "aliases": [
+                "WHITEHAT JR",
+                "WHITEHAT JUNIOR"
+            ],
+            "category": "Education",
+            "subcategory": "Ed-Tech"
+        },
+        {
+            "name": "Coursera",
+            "aliases": [
+                "COURSERA",
+                "COURSERA INC"
+            ],
+            "category": "Education",
+            "subcategory": "Online Learning"
+        },
+        {
+            "name": "Udemy",
+            "aliases": [
+                "UDEMY",
+                "UDEMY INC"
+            ],
+            "category": "Education",
+            "subcategory": "Online Learning"
+        },
+        {
+            "name": "Khan Academy",
+            "aliases": [
+                "KHAN ACADEMY"
+            ],
+            "category": "Education",
+            "subcategory": "Online Learning"
+        },
+        {
+            "name": "Simplilearn",
+            "aliases": [
+                "SIMPLILEARN",
+                "SIMPLILEARN SOLUTIONS"
+            ],
+            "category": "Education",
+            "subcategory": "Ed-Tech"
+        },
+        {
+            "name": "Great Learning",
+            "aliases": [
+                "GREAT LEARNING",
+                "GREAT LAKES"
+            ],
+            "category": "Education",
+            "subcategory": "Ed-Tech"
+        },
+        {
+            "name": "Toppr",
+            "aliases": [
+                "TOPPR",
+                "TOPPR TECHNOLOGIES"
+            ],
+            "category": "Education",
+            "subcategory": "Ed-Tech"
+        },
+        {
+            "name": "Doubtnut",
+            "aliases": [
+                "DOUBTNUT"
+            ],
+            "category": "Education",
+            "subcategory": "Ed-Tech"
+        },
+        {
+            "name": "MakeMyTrip",
+            "aliases": [
+                "MAKEMYTRIP",
+                "MAKE MY TRIP",
+                "MMT"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Travel Booking"
+        },
+        {
+            "name": "Goibibo",
+            "aliases": [
+                "GOIBIBO",
+                "GO IBIBO",
+                "IBIBO"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Travel Booking"
+        },
+        {
+            "name": "EaseMyTrip",
+            "aliases": [
+                "EASEMYTRIP",
+                "EASE MY TRIP",
+                "EMT"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Travel Booking"
+        },
+        {
+            "name": "Yatra",
+            "aliases": [
+                "YATRA",
+                "YATRA ONLINE",
+                "YATRA COM"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Travel Booking"
+        },
+        {
+            "name": "IndiGo",
+            "aliases": [
+                "INDIGO",
+                "INTERGLOBE AVIATION",
+                "6E"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Flight"
+        },
+        {
+            "name": "Air India",
+            "aliases": [
+                "AIR INDIA",
+                "AIRINDIA",
+                "TATA AIR INDIA"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Flight"
+        },
+        {
+            "name": "SpiceJet",
+            "aliases": [
+                "SPICEJET",
+                "SPICE JET"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Flight"
+        },
+        {
+            "name": "Vistara",
+            "aliases": [
+                "VISTARA",
+                "TATA SIA AIRLINES"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Flight"
+        },
+        {
+            "name": "Akasa Air",
+            "aliases": [
+                "AKASA",
+                "AKASA AIR",
+                "SNV AVIATION"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Flight"
+        },
+        {
+            "name": "OYO",
+            "aliases": [
+                "OYO",
+                "OYO ROOMS",
+                "ORAVEL STAYS"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Hotel"
+        },
+        {
+            "name": "Airbnb",
+            "aliases": [
+                "AIRBNB",
+                "AIR BNB"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Hotel"
+        },
+        {
+            "name": "Treebo",
+            "aliases": [
+                "TREEBO",
+                "TREEBO HOTELS"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Hotel"
+        },
+        {
+            "name": "FabHotels",
+            "aliases": [
+                "FABHOTELS",
+                "FAB HOTELS"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Hotel"
+        },
+        {
+            "name": "Cleartrip",
+            "aliases": [
+                "CLEARTRIP",
+                "CLEAR TRIP",
+                "FLIPKART CLEARTRIP"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Travel Booking"
+        },
+        {
+            "name": "Booking.com",
+            "aliases": [
+                "BOOKING.COM",
+                "BOOKING COM",
+                "BOOKING BV"
+            ],
+            "category": "Travel & Hotels",
+            "subcategory": "Hotel"
+        },
+        {
+            "name": "LIC",
+            "aliases": [
+                "LIC",
+                "LIFE INSURANCE CORPORATION",
+                "LIC INDIA"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Life Insurance"
+        },
+        {
+            "name": "HDFC Life",
+            "aliases": [
+                "HDFC LIFE",
+                "HDFC STANDARD LIFE"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Life Insurance"
+        },
+        {
+            "name": "ICICI Prudential",
+            "aliases": [
+                "ICICI PRUDENTIAL",
+                "ICICI PRU",
+                "ICICI LOMBARD"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Insurance"
+        },
+        {
+            "name": "SBI Life",
+            "aliases": [
+                "SBI LIFE",
+                "SBI LIFE INSURANCE"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Life Insurance"
+        },
+        {
+            "name": "Max Life Insurance",
+            "aliases": [
+                "MAX LIFE",
+                "MAX LIFE INSURANCE"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Life Insurance"
+        },
+        {
+            "name": "Star Health",
+            "aliases": [
+                "STAR HEALTH",
+                "STAR HEALTH INSURANCE"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Health Insurance"
+        },
+        {
+            "name": "Digit Insurance",
+            "aliases": [
+                "DIGIT",
+                "GO DIGIT",
+                "DIGIT INSURANCE"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Insurance"
+        },
+        {
+            "name": "Acko",
+            "aliases": [
+                "ACKO",
+                "ACKO GENERAL INSURANCE"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Insurance"
+        },
+        {
+            "name": "PolicyBazaar",
+            "aliases": [
+                "POLICYBAZAAR",
+                "POLICY BAZAAR",
+                "ETECHACES"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Insurance"
+        },
+        {
+            "name": "Groww",
+            "aliases": [
+                "GROWW",
+                "NEXTBILLION TECHNOLOGY"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Investment"
+        },
+        {
+            "name": "Zerodha",
+            "aliases": [
+                "ZERODHA",
+                "ZERODHA BROKING"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Investment"
+        },
+        {
+            "name": "Upstox",
+            "aliases": [
+                "UPSTOX",
+                "RKSV SECURITIES"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Investment"
+        },
+        {
+            "name": "Angel One",
+            "aliases": [
+                "ANGEL ONE",
+                "ANGEL BROKING",
+                "ANGELONE"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Investment"
+        },
+        {
+            "name": "CoinDCX",
+            "aliases": [
+                "COINDCX",
+                "COIN DCX"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Crypto"
+        },
+        {
+            "name": "WazirX",
+            "aliases": [
+                "WAZIRX",
+                "WAZIR X",
+                "ZANMAI LABS"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Crypto"
+        },
+        {
+            "name": "CRED",
+            "aliases": [
+                "CRED",
+                "DREAMPLUG TECHNOLOGIES"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Credit Card"
+        },
+        {
+            "name": "BankBazaar",
+            "aliases": [
+                "BANKBAZAAR",
+                "BANK BAZAAR"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Financial Services"
+        },
+        {
+            "name": "Jupiter",
+            "aliases": [
+                "JUPITER",
+                "AMICA FINANCIAL TECHNOLOGIES"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Neo Bank"
+        },
+        {
+            "name": "Fi Money",
+            "aliases": [
+                "FI MONEY",
+                "FI",
+                "EPIFI TECHNOLOGIES"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Neo Bank"
+        },
+        {
+            "name": "Slice",
+            "aliases": [
+                "SLICE",
+                "SLICEIT",
+                "QUADRILLION FINANCE"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Credit Card"
+        },
+        {
+            "name": "Razorpay",
+            "aliases": [
+                "RAZORPAY",
+                "RAZORPAY SOFTWARE"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Payment Gateway"
+        },
+        {
+            "name": "Cashfree",
+            "aliases": [
+                "CASHFREE",
+                "CASHFREE PAYMENTS"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Payment Gateway"
+        },
+        {
+            "name": "SBI",
+            "aliases": [
+                "STATE BANK OF INDIA",
+                "SBI BANK",
+                "SBI YONO"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Bank"
+        },
+        {
+            "name": "HDFC Bank",
+            "aliases": [
+                "HDFC BANK",
+                "HDFC",
+                "HDFC LTD"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Bank"
+        },
+        {
+            "name": "ICICI Bank",
+            "aliases": [
+                "ICICI BANK",
+                "ICICI",
+                "ICICI CREDIT"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Bank"
+        },
+        {
+            "name": "Axis Bank",
+            "aliases": [
+                "AXIS BANK",
+                "AXIS",
+                "UTI BANK"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Bank"
+        },
+        {
+            "name": "Kotak Mahindra",
+            "aliases": [
+                "KOTAK",
+                "KOTAK MAHINDRA",
+                "KOTAK BANK"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Bank"
+        },
+        {
+            "name": "Yes Bank",
+            "aliases": [
+                "YES BANK",
+                "YESBANK"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Bank"
+        },
+        {
+            "name": "IndusInd Bank",
+            "aliases": [
+                "INDUSIND",
+                "INDUSIND BANK"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Bank"
+        },
+        {
+            "name": "Federal Bank",
+            "aliases": [
+                "FEDERAL BANK",
+                "FEDERALBANK"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Bank"
+        },
+        {
+            "name": "EMI Network",
+            "aliases": [
+                "EMI",
+                "NO COST EMI",
+                "BAJAJ FINSERV EMI",
+                "ZEST MONEY"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "EMI"
+        },
+        {
+            "name": "Bajaj Finserv",
+            "aliases": [
+                "BAJAJ FINSERV",
+                "BAJAJ FINANCE",
+                "BAJAJ EMI"
+            ],
+            "category": "Finance & Insurance",
+            "subcategory": "Lending"
+        },
+        {
+            "name": "Nykaa Beauty",
+            "aliases": [
+                "NYKAA",
+                "FSN ECOMMERCE"
+            ],
+            "category": "Personal Care",
+            "subcategory": "Beauty"
+        },
+        {
+            "name": "Mamaearth",
+            "aliases": [
+                "MAMAEARTH",
+                "HONASA CONSUMER"
+            ],
+            "category": "Personal Care",
+            "subcategory": "Personal Care"
+        },
+        {
+            "name": "The Man Company",
+            "aliases": [
+                "THE MAN COMPANY",
+                "MAN COMPANY"
+            ],
+            "category": "Personal Care",
+            "subcategory": "Grooming"
+        },
+        {
+            "name": "Beardo",
+            "aliases": [
+                "BEARDO"
+            ],
+            "category": "Personal Care",
+            "subcategory": "Grooming"
+        },
+        {
+            "name": "WOW Skin Science",
+            "aliases": [
+                "WOW SKIN",
+                "WOW SCIENCE"
+            ],
+            "category": "Personal Care",
+            "subcategory": "Personal Care"
+        },
+        {
+            "name": "Plum",
+            "aliases": [
+                "PLUM",
+                "PLUM GOODNESS",
+                "PUREPLAY SKIN SCIENCES"
+            ],
+            "category": "Personal Care",
+            "subcategory": "Personal Care"
+        },
+        {
+            "name": "Lakmé Salon",
+            "aliases": [
+                "LAKME SALON",
+                "LAKME",
+                "HUL LAKME"
+            ],
+            "category": "Personal Care",
+            "subcategory": "Salon"
+        },
+        {
+            "name": "Jawed Habib",
+            "aliases": [
+                "JAWED HABIB",
+                "JAWEDHABIB"
+            ],
+            "category": "Personal Care",
+            "subcategory": "Salon"
+        },
+        {
+            "name": "Naturals Salon",
+            "aliases": [
+                "NATURALS SALON",
+                "NATURALS"
+            ],
+            "category": "Personal Care",
+            "subcategory": "Salon"
+        },
+        {
+            "name": "VLCC",
+            "aliases": [
+                "VLCC",
+                "VLCC PERSONAL CARE"
+            ],
+            "category": "Personal Care",
+            "subcategory": "Wellness"
+        },
+        {
+            "name": "Cult.fit",
+            "aliases": [
+                "CULT FIT",
+                "CULT.FIT",
+                "CUREFIT",
+                "CURE FIT"
+            ],
+            "category": "Fitness & Wellness",
+            "subcategory": "Gym"
+        },
+        {
+            "name": "Cure.fit",
+            "aliases": [
+                "CUREFIT",
+                "CURE FIT",
+                "MINDFIT"
+            ],
+            "category": "Fitness & Wellness",
+            "subcategory": "Health"
+        },
+        {
+            "name": "Gold's Gym",
+            "aliases": [
+                "GOLDS GYM",
+                "GOLD GYM"
+            ],
+            "category": "Fitness & Wellness",
+            "subcategory": "Gym"
+        },
+        {
+            "name": "Anytime Fitness",
+            "aliases": [
+                "ANYTIME FITNESS"
+            ],
+            "category": "Fitness & Wellness",
+            "subcategory": "Gym"
+        },
+        {
+            "name": "HealthifyMe",
+            "aliases": [
+                "HEALTHIFYME",
+                "HEALTHIFY ME",
+                "KALOBYTES"
+            ],
+            "category": "Fitness & Wellness",
+            "subcategory": "Health App"
+        },
+        {
+            "name": "Fitbit",
+            "aliases": [
+                "FITBIT",
+                "FITBIT GOOGLE"
+            ],
+            "category": "Fitness & Wellness",
+            "subcategory": "Wearable"
+        },
+        {
+            "name": "Decathlon",
+            "aliases": [
+                "DECATHLON",
+                "DECATHLON SPORTS"
+            ],
+            "category": "Fitness & Wellness",
+            "subcategory": "Sports Equipment"
+        },
+        {
+            "name": "Puma",
+            "aliases": [
+                "PUMA",
+                "PUMA INDIA"
+            ],
+            "category": "Shopping",
+            "subcategory": "Sports Fashion"
+        },
+        {
+            "name": "Nike",
+            "aliases": [
+                "NIKE",
+                "NIKE INDIA"
+            ],
+            "category": "Shopping",
+            "subcategory": "Sports Fashion"
+        },
+        {
+            "name": "Adidas",
+            "aliases": [
+                "ADIDAS",
+                "ADIDAS INDIA"
+            ],
+            "category": "Shopping",
+            "subcategory": "Sports Fashion"
+        },
+        {
+            "name": "Notion Press",
+            "aliases": [
+                "NOTION PRESS"
+            ],
+            "category": "Education",
+            "subcategory": "Books"
+        },
+        {
+            "name": "Amazon Kindle",
+            "aliases": [
+                "KINDLE",
+                "AMAZON KINDLE"
+            ],
+            "category": "Education",
+            "subcategory": "Books"
+        },
+        {
+            "name": "Kitabay",
+            "aliases": [
+                "KITABAY",
+                "BOOKISH SANTA"
+            ],
+            "category": "Education",
+            "subcategory": "Books"
+        },
+        {
+            "name": "Crossword",
+            "aliases": [
+                "CROSSWORD",
+                "CROSSWORD BOOKSTORES"
+            ],
+            "category": "Education",
+            "subcategory": "Books"
+        },
+        {
+            "name": "Landmark Books",
+            "aliases": [
+                "LANDMARK BOOKS",
+                "LANDMARK"
+            ],
+            "category": "Education",
+            "subcategory": "Books"
+        },
+        {
+            "name": "Urban Company",
+            "aliases": [
+                "URBAN COMPANY",
+                "URBANCOMPANY",
+                "URBAN CLAP",
+                "URBANCLAP"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Home Services"
+        },
+        {
+            "name": "NoBroker",
+            "aliases": [
+                "NOBROKER",
+                "NO BROKER",
+                "NOBROKER.COM"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Rent"
+        },
+        {
+            "name": "Housing.com",
+            "aliases": [
+                "HOUSING.COM",
+                "HOUSING COM",
+                "PROPTIGER"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Real Estate"
+        },
+        {
+            "name": "99acres",
+            "aliases": [
+                "99ACRES",
+                "99 ACRES",
+                "INFO EDGE"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Real Estate"
+        },
+        {
+            "name": "Sulekha",
+            "aliases": [
+                "SULEKHA",
+                "SULEKHA.COM"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Home Services"
+        },
+        {
+            "name": "Justdial",
+            "aliases": [
+                "JUSTDIAL",
+                "JUST DIAL"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Local Services"
+        },
+        {
+            "name": "UrbanMatter",
+            "aliases": [
+                "URBANMATTER",
+                "URBAN MATTER"
+            ],
+            "category": "Utilities & Bills",
+            "subcategory": "Home Services"
+        },
+        {
+            "name": "Naukri",
+            "aliases": [
+                "NAUKRI",
+                "NAUKRI.COM",
+                "INFO EDGE NAUKRI"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Job Portal"
+        },
+        {
+            "name": "LinkedIn",
+            "aliases": [
+                "LINKEDIN",
+                "LINKEDIN PREMIUM"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Professional Network"
+        },
+        {
+            "name": "Canva",
+            "aliases": [
+                "CANVA",
+                "CANVA PTY"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Design Tool"
+        },
+        {
+            "name": "Adobe",
+            "aliases": [
+                "ADOBE",
+                "ADOBE SYSTEMS",
+                "ADOBE INC"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Software"
+        },
+        {
+            "name": "Microsoft",
+            "aliases": [
+                "MICROSOFT",
+                "MSFT",
+                "MICROSOFT INDIA"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Software"
+        },
+        {
+            "name": "Google Workspace",
+            "aliases": [
+                "GOOGLE WORKSPACE",
+                "GSUITE",
+                "GOOGLE APPS"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Software"
+        },
+        {
+            "name": "Zoho",
+            "aliases": [
+                "ZOHO",
+                "ZOHO CORP",
+                "ZOHO CORPORATION"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Software"
+        },
+        {
+            "name": "Freshworks",
+            "aliases": [
+                "FRESHWORKS",
+                "FRESHDESK"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Software"
+        },
+        {
+            "name": "Godaddy",
+            "aliases": [
+                "GODADDY",
+                "GO DADDY"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Domain & Hosting"
+        },
+        {
+            "name": "Hostinger",
+            "aliases": [
+                "HOSTINGER"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Domain & Hosting"
+        },
+        {
+            "name": "Indiamart",
+            "aliases": [
+                "INDIAMART",
+                "INDIA MART"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "B2B"
+        },
+        {
+            "name": "Tradeindia",
+            "aliases": [
+                "TRADEINDIA",
+                "TRADE INDIA"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "B2B"
+        },
+        {
+            "name": "Shiprocket",
+            "aliases": [
+                "SHIPROCKET",
+                "SHIP ROCKET",
+                "BIGFOOT RETAIL"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Logistics"
+        },
+        {
+            "name": "Delhivery",
+            "aliases": [
+                "DELHIVERY",
+                "DELHIVERY PRIVATE"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Logistics"
+        },
+        {
+            "name": "Blue Dart",
+            "aliases": [
+                "BLUE DART",
+                "BLUEDART",
+                "DHL EXPRESS"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Logistics"
+        },
+        {
+            "name": "DTDC",
+            "aliases": [
+                "DTDC",
+                "DTDC COURIER"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Logistics"
+        },
+        {
+            "name": "India Post",
+            "aliases": [
+                "INDIA POST",
+                "INDIAN POST",
+                "POSTAL"
+            ],
+            "category": "Miscellaneous",
+            "subcategory": "Logistics"
+        },
+        {
+            "name": "Sulekha Events",
+            "aliases": [
+                "SULEKHA EVENTS"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Events"
+        },
+        {
+            "name": "Insider",
+            "aliases": [
+                "INSIDER",
+                "INSIDER.IN",
+                "PAYTM INSIDER"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Events"
+        },
+        {
+            "name": "Bira 91",
+            "aliases": [
+                "BIRA",
+                "BIRA 91",
+                "B9 BEVERAGES"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Alcohol"
+        },
+        {
+            "name": "Zupee",
+            "aliases": [
+                "ZUPEE",
+                "CASHGRAIL"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Gaming"
+        },
+        {
+            "name": "WinZO",
+            "aliases": [
+                "WINZO",
+                "WIN ZO"
+            ],
+            "category": "Entertainment",
+            "subcategory": "Gaming"
+        },
+        {
+            "name": "Vedantu",
+            "aliases": [
+                "VEDANTU",
+                "VEDANTU INNOVATIONS"
+            ],
+            "category": "Education",
+            "subcategory": "Ed-Tech"
+        },
+        {
+            "name": "Park+",
+            "aliases": [
+                "PARK PLUS",
+                "PARKPLUS",
+                "PARK+"
+            ],
+            "category": "Transportation",
+            "subcategory": "Parking"
+        },
+        {
+            "name": "Sulekha Parking",
+            "aliases": [
+                "SULEKHA PARKING"
+            ],
+            "category": "Transportation",
+            "subcategory": "Parking"
+        }
+    ]
+}

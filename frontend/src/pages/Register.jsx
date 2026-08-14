@@ -4,7 +4,7 @@ import { authService } from '../services/api';
 import { Landmark, Mail, Lock, User, AlertCircle, Loader, CheckCircle2 } from 'lucide-react';
 
 /**
- * Authentication Register Page.
+ * Authentication Register Page matching light fintech design system.
  */
 const Register = () => {
   const navigate = useNavigate();
@@ -32,7 +32,6 @@ const Register = () => {
       setSuccess('Account created successfully! Redirecting to login...');
       setLoading(false);
       
-      // Delay redirection slightly so the user sees success
       setTimeout(() => {
         navigate('/login');
       }, 2000);
@@ -43,35 +42,35 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-[#FAFAF8] flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 font-sans">
       {/* Brand Header */}
-      <div className="flex items-center gap-2.5 mb-8">
-        <div className="p-3 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-2xl text-white shadow-xl shadow-indigo-650/20">
-          <Landmark className="w-7 h-7" />
+      <div className="flex items-center gap-3 mb-8">
+        <div className="p-3 bg-[#16803C] rounded-2xl text-white shadow-sm">
+          <Landmark className="w-6 h-6" />
         </div>
-        <span className="text-2xl font-bold bg-gradient-to-r from-white via-slate-100 to-indigo-400 bg-clip-text text-transparent">
+        <span className="text-2xl font-black text-slate-900 tracking-tight">
           SmartSpend
         </span>
       </div>
 
       {/* Register Card */}
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden backdrop-blur-md">
-        <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-8 shadow-xs relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1 bg-[#16803C]" />
         
-        <h2 className="text-xl font-bold text-white mb-1">Create an account</h2>
-        <p className="text-sm text-slate-400 mb-6">Join us and start tracking your spendings</p>
+        <h2 className="text-xl font-black text-slate-900 mb-1">Create an account</h2>
+        <p className="text-xs text-slate-500 font-medium mb-6">Join us and start tracking your spendings</p>
 
         {/* Feedback alerts */}
         {error && (
-          <div className="flex items-center gap-2 p-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-xs text-rose-400 mb-5 animate-headShake">
+          <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium mb-5">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {success && (
-          <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xs text-emerald-400 mb-5">
-            <CheckCircle2 className="w-4 h-4 flex-shrink-0 animate-bounce" />
+          <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-[#16803C] font-semibold mb-5">
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
             <span>{success}</span>
           </div>
         )}
@@ -79,9 +78,9 @@ const Register = () => {
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Full Name input */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Full Name</label>
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Full Name</label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <User className="w-4 h-4" />
               </div>
               <input
@@ -90,16 +89,16 @@ const Register = () => {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="John Doe"
-                className="block w-full pl-10 pr-3.5 py-3 rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/25 transition-all text-sm"
+                className="block w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#16803C] focus:bg-white transition-all text-xs font-semibold"
               />
             </div>
           </div>
 
           {/* Email input */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Email Address</label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <Mail className="w-4 h-4" />
               </div>
               <input
@@ -108,16 +107,16 @@ const Register = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="block w-full pl-10 pr-3.5 py-3 rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/25 transition-all text-sm"
+                className="block w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#16803C] focus:bg-white transition-all text-xs font-semibold"
               />
             </div>
           </div>
 
           {/* Password input */}
           <div>
-            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Password</label>
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Password</label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <Lock className="w-4 h-4" />
               </div>
               <input
@@ -126,7 +125,7 @@ const Register = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="block w-full pl-10 pr-3.5 py-3 rounded-2xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/25 transition-all text-sm"
+                className="block w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#16803C] focus:bg-white transition-all text-xs font-semibold"
               />
             </div>
           </div>
@@ -135,7 +134,7 @@ const Register = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3.5 px-4 rounded-2xl font-semibold text-white bg-indigo-600 hover:bg-indigo-500 border border-indigo-500/20 hover:border-indigo-500/40 shadow-lg shadow-indigo-600/15 hover:shadow-indigo-600/25 flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3.5 px-4 rounded-xl font-bold text-white bg-[#16803C] hover:bg-[#136e33] shadow-xs flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
           >
             {loading ? (
               <>
@@ -149,9 +148,9 @@ const Register = () => {
         </form>
 
         {/* Link to Login */}
-        <p className="text-center text-xs text-slate-400 mt-6">
+        <p className="text-center text-xs text-slate-500 font-medium mt-6">
           Already have an account?{' '}
-          <Link to="/login" className="font-semibold text-indigo-400 hover:text-indigo-300 transition-all">
+          <Link to="/login" className="font-bold text-[#16803C] hover:underline">
             Sign in
           </Link>
         </p>
