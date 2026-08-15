@@ -2422,6 +2422,34 @@
             ],
             "category": "Transportation",
             "subcategory": "Parking"
+        },
+        {
+            "name": "Tea Post",
+            "aliases": [
+                "TEA POST",
+                "TEAPOST"
+            ],
+            "category": "Food & Dining",
+            "subcategory": "Cafe"
+        },
+        {
+            "name": "Tanishq",
+            "aliases": [
+                "TANISHQ",
+                "TANISHQ JEWELLERS",
+                "TITAN TANISHQ"
+            ],
+            "category": "Shopping",
+            "subcategory": "Jewelry"
+        },
+        {
+            "name": "Ravi Properties",
+            "aliases": [
+                "RAVI PROPERTIES",
+                "RAVI PROPERTY"
+            ],
+            "category": "Other",
+            "subcategory": "Rent"
         }
     ]
 }

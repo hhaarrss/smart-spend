@@ -78,6 +78,7 @@ export const transactionService = {
     if (filters.start_date) params.start_date = filters.start_date;
     if (filters.end_date) params.end_date = filters.end_date;
     if (filters.type) params.type = filters.type;
+    if (filters.review_status) params.review_status = filters.review_status;
 
     const response = await api.get('/transactions/', { params });
     return response.data;
@@ -97,6 +98,20 @@ export const transactionService = {
       account_last4: txData.account_last4 || null,
       date: txData.date, // ISO Date string
       source: txData.source || 'manual',
+    });
+    return response.data;
+  },
+
+  /**
+   * Re-categorizes a transaction and records user learning feedback.
+   */
+  recategorizeTransaction: async (transactionId, newCategory, subcategory = null, merchantRaw = null, displayName = null) => {
+    const response = await api.patch(`/transactions/${transactionId}/recategorize`, {
+      transaction_id: transactionId,
+      merchant_raw: merchantRaw || 'Unknown',
+      new_category: newCategory,
+      subcategory: subcategory,
+      display_name: displayName,
     });
     return response.data;
   },

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from models.family import FamilyGroup
     from models.transaction import Transaction
     from models.budget import BudgetLimit
+    from models.merchant_mapping import MerchantMapping
 
 
 class User(Base):
@@ -50,6 +51,12 @@ class User(Base):
     
     budgets: Mapped[List["BudgetLimit"]] = relationship(
         "BudgetLimit",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    merchant_mappings: Mapped[List["MerchantMapping"]] = relationship(
+        "MerchantMapping",
         back_populates="user",
         cascade="all, delete-orphan",
     )

@@ -26,10 +26,31 @@ data class LoginResponse(
 )
 
 /**
+ * Transaction data model returned inside SMS ingestion response.
+ */
+data class TransactionData(
+    val id: Int,
+    val user_id: Int,
+    val amount: Double,
+    val type: String,
+    val category: String,
+    val merchant: String?,
+    val subcategory: String?,
+    val bank: String?,
+    val account_last4: String?,
+    val date: String,
+    val source: String?,
+    val confidence: String?,
+    val review_status: String?,
+    val created_at: String
+)
+
+/**
  * Response model for the /transactions/ingest-sms endpoint.
  */
 data class SmsIngestionResponse(
     val success: Boolean,
+    val transaction: TransactionData?,
     val message: String
 )
 
@@ -59,7 +80,7 @@ interface BackendService {
     ): Response<SmsIngestionResponse>
 
     companion object {
-        private const val BASE_URL = "https://expense-tracker-production-b8ed.up.railway.app/"
+        private const val BASE_URL = "https://expense-tracker-pk4d.onrender.com/"
 
         /**
          * Creates a configured Retrofit BackendService instance.

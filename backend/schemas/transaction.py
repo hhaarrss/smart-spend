@@ -59,6 +59,7 @@ class TransactionResponse(TransactionBase):
     raw_sms: Optional[str] = None
     upi_ref: Optional[str] = None
     confidence: Optional[str] = None
+    review_status: Optional[str] = "reviewed"
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

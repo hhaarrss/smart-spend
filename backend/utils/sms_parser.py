@@ -19,8 +19,10 @@ def clean_amount(amt_str: str) -> float:
     Returns:
         float: Cleaned floating point representation of the amount.
     """
-    cleaned = re.sub(r"[^\d.]", "", amt_str)
-    return float(cleaned) if cleaned else 0.0
+    match = re.search(r"(\d+(?:,\d+)*(?:\.\d+)?)", amt_str)
+    if match:
+        return float(match.group(1).replace(",", ""))
+    return 0.0
 
 
 def parse_sms_date(date_str: str) -> datetime:
@@ -126,7 +128,7 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
 
     # Determine debit vs credit
     # Standard keywords
-    debit_keywords = ["debited", "spent", "paid", "withdrawn", "payment", "charge", "withdrew", "txn to"]
+    debit_keywords = ["debited", "spent", "paid", "withdrawn", "payment", "charge", "withdrew", "txn to", "used for", "used at", "transaction of", "used"]
     credit_keywords = ["credited", "received", "deposited", "added", "refund", "salary"]
 
     is_debit = any(kw in sms_lower for kw in debit_keywords)
@@ -144,10 +146,11 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
     if bank == "ICICI":
         icici_debit = "debited" in sms_lower
         icici_credit = "credited with" in sms_lower
+        icici_card = "credit card" in sms_lower or "has been used" in sms_lower
 
-        if icici_debit or icici_credit:
+        if icici_debit or icici_credit or icici_card:
             # Account: extract only digits after XX (e.g. XX373 → 373)
-            acct_match = re.search(r"(?:Acct|a/c|ac)\s*(?:no\.?\s*)?XX(\d+)", sms, re.IGNORECASE)
+            acct_match = re.search(r"(?:Acct|a/c|ac|card)\s*(?:no\.?\s*)?X{2,}(\d{2,4})", sms, re.IGNORECASE)
             acct = acct_match.group(1) if acct_match else "0000"
 
             # Date: DD-Mon-YY format (e.g. 28-May-26)
@@ -204,11 +207,29 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
                         "bank": bank,
                     }
 
+            if icici_card:
+                amt_match = re.search(r"(?:transaction of|for)\s+Rs\.?\s*([\d,]+\.?\d*)", sms, re.IGNORECASE)
+                merch_match = re.search(r"at\s+(.+?)\s*(?:\.|\s+If not|$)", sms, re.IGNORECASE)
+                merch = merch_match.group(1).strip() if merch_match else "Unknown Merchant"
+
+                if amt_match:
+                    return {
+                        "amount": clean_amount(amt_match.group(1)),
+                        "type": "debit",
+                        "account_last4": acct,
+                        "merchant": merch,
+                        "balance": bal,
+                        "date": parsed_date,
+                        "bank": bank,
+                    }
+
     # Extract Account Last 4
     account_match = re.search(
-        r"(?:a/c|ac|account|card|ending|xx)\s*(?:no\.?\s*)?(?:ending\s*)?(\d{4})",
+        r"(?:a/c|ac|account|card|ending)\s*(?:no\.?\s*)?(?:ending\s*)?(?:x{2,})?(\d{2,4})",
         sms_lower
     )
+    if not account_match:
+        account_match = re.search(r"x{2,}(\d{2,4})", sms_lower)
     # Fallback to general 4 digits near A/c / card
     if not account_match:
         account_match = re.search(r"\b\d{4}\b", sms_lower)
@@ -269,6 +290,12 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
         merchant = merchant_match.group(1).strip()
         # Clean up common noise words
         merchant = re.sub(r"\s*(?:a/c|card|using|ending|avail|bal|vpa|upi).*$", "", merchant, flags=re.IGNORECASE).strip()
+
+    if not merchant or merchant.lower() in ["unknown", "unknown merchant"]:
+        # Look for standalone merchant after reference e.g. credited(...). TATA POWER. -SBI
+        sbi_merch_match = re.search(r"\)\.\s*([A-Za-z0-9\s\-&'\*\/]{3,30}?)\.\s*-(?:SBI|ICICI|HDFC|AXIS)", sms, re.IGNORECASE)
+        if sbi_merch_match:
+            merchant = sbi_merch_match.group(1).strip()
     
     # Fallback merchant based on credit context if none identified
     if not merchant:

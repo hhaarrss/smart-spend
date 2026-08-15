@@ -37,6 +37,9 @@ class Transaction(Base):
         String(100), default="manual", nullable=True
     )  # which step matched ('sms', 'aa', 'manual')
     confidence: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # high / medium / low / none
+    review_status: Mapped[Optional[str]] = mapped_column(
+        String(50), default="reviewed", server_default="reviewed", nullable=True, index=True
+    )  # needs_review / reviewed / auto_categorized
     bank: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     account_last4: Mapped[Optional[str]] = mapped_column(String(4), nullable=True)
     date: Mapped[datetime] = mapped_column(

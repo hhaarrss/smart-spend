@@ -9,5 +9,6 @@ from models.user import User
 from models.transaction import Transaction
 from models.budget import BudgetLimit
 from models.family import FamilyGroup
+from models.merchant_mapping import MerchantMapping
 
-__all__ = ["Base", "User", "Transaction", "BudgetLimit", "FamilyGroup"]
+__all__ = ["Base", "User", "Transaction", "BudgetLimit", "FamilyGroup", "MerchantMapping"]

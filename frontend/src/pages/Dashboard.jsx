@@ -10,17 +10,16 @@ import {
   DollarSign, AlertTriangle, ArrowRightLeft,
   ShoppingBag, Wallet, ChevronRight, Activity, ChevronDown,
   Utensils, Zap, ShoppingCart, ArrowRight, BrainCircuit,
-  TrendingUp, ArrowUpRight, ArrowDownRight, Filter, X
+  TrendingUp, ArrowUpRight, ArrowDownRight, Filter, X, HelpCircle, ShieldAlert
 } from 'lucide-react';
 import TransactionCard from '../components/TransactionCard';
 
 /**
  * Main dashboard page with structural UX enhancements:
- * - MoM trend deltas on stat cards
- * - Single consolidated alert block (no duplicate count stat card)
- * - Promoted AI insight highlight directly on dashboard
- * - Interactive cross-filtering between charts, budget cards, and transaction list
- * - Direct spike annotations on spending chart and inline anomaly badges on transaction rows
+ * - "Needs Review" Banner & Card for transactions requiring classification
+ * - Category re-categorization handler directly from transaction rows
+ * - Filter tabs (All, Needs Review, Debits, Credits)
+ * - MoM trend deltas on stat cards & consolidated budget alerts
  */
 const Dashboard = () => {
   const { user } = useAuth();
@@ -35,6 +34,7 @@ const Dashboard = () => {
 
   // Interactive filtering state
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'needs_review' | 'debit' | 'credit'
 
   // Date states
   const [currentMonthStr, setCurrentMonthStr] = useState('');
@@ -49,7 +49,6 @@ const Dashboard = () => {
     setCurrentMonthStr(monthStr);
     setMonthName(now.toLocaleString('default', { month: 'long' }));
 
-    // Previous month calculation
     const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     setPrevMonthName(prevMonthDate.toLocaleString('default', { month: 'long' }));
 
@@ -73,7 +72,6 @@ const Dashboard = () => {
       const firstDay = `${year}-${mm}-01T00:00:00`;
       const lastDay = `${year}-${mm}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59`;
 
-      // Previous month date range
       const prevYear = month === 1 ? year - 1 : year;
       const prevMonthNum = month === 1 ? 12 : month - 1;
       const prevLastDay = new Date(prevYear, prevMonthNum, 0).getDate();
@@ -81,7 +79,6 @@ const Dashboard = () => {
       const prevFirstDay = `${prevYear}-${prevMM}-01T00:00:00`;
       const prevLastDayStr = `${prevYear}-${prevMM}-${String(prevLastDay).padStart(2, '0')}T23:59:59`;
 
-      // Parallel API calls for rich dashboard data
       const [txsRaw, prevTxsRaw, budgetLimitsRaw, insightsData] = await Promise.all([
         transactionService.listTransactions({ start_date: firstDay, end_date: lastDay }),
         transactionService.listTransactions({ start_date: prevFirstDay, end_date: prevLastDayStr }),
@@ -105,6 +102,15 @@ const Dashboard = () => {
       setError(`Dashboard load error: ${err.response?.data?.detail || err.message || 'Check backend connection.'}`);
     }
   };
+
+  const handleRecategorize = async (transactionId, newCategory, merchantRaw) => {
+    await transactionService.recategorizeTransaction(transactionId, newCategory, null, merchantRaw);
+    await loadDashboardData(currentMonthStr, false);
+  };
+
+  // Needs review calculation
+  const needsReviewTx = transactions.filter(t => t.review_status === 'needs_review' || t.category === 'Needs Review');
+  const needsReviewCount = needsReviewTx.length;
 
   // Calculations for current month
   const debits = transactions.filter(t => t.type === 'debit');
@@ -167,7 +173,7 @@ const Dashboard = () => {
     }
   });
 
-  // Group by day for Recharts Bar Chart & Spike Detection
+  // Group by day for Recharts Bar Chart
   const dailyTotals = {};
   const now = new Date();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -184,7 +190,6 @@ const Dashboard = () => {
     } catch { }
   });
 
-  // Find day with peak single spike (for direct chart flagging)
   let peakDay = 0;
   let peakAmount = 0;
 
@@ -197,7 +202,7 @@ const Dashboard = () => {
     return {
       day: dayNum,
       amount: Math.round(amount),
-      isSpike: amount > 5000 // Flag spikes over ₹5,000 directly on chart
+      isSpike: amount > 5000
     };
   }).sort((a, b) => a.day - b.day);
 
@@ -214,16 +219,25 @@ const Dashboard = () => {
     };
   }).filter(alert => alert.percent >= alert.alertPercent);
 
-  // Recent transactions (filtered if category selected)
-  const filteredTransactions = selectedCategory
-    ? transactions.filter(t => t.category.toLowerCase() === selectedCategory.toLowerCase())
-    : transactions;
+  // Filtering logic
+  let filteredTransactions = transactions;
+
+  if (activeTab === 'needs_review') {
+    filteredTransactions = filteredTransactions.filter(t => t.review_status === 'needs_review' || t.category === 'Needs Review');
+  } else if (activeTab === 'debit') {
+    filteredTransactions = filteredTransactions.filter(t => t.type === 'debit');
+  } else if (activeTab === 'credit') {
+    filteredTransactions = filteredTransactions.filter(t => t.type === 'credit');
+  }
+
+  if (selectedCategory) {
+    filteredTransactions = filteredTransactions.filter(t => t.category.toLowerCase() === selectedCategory.toLowerCase());
+  }
 
   const recentTransactions = [...filteredTransactions]
     .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 10);
+    .slice(0, 15);
 
-  // Top AI Highlight Anomaly from Insights
   const topAnomaly = anomalies.length > 0 ? anomalies[0] : null;
 
   if (loading) {
@@ -247,16 +261,37 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* 4 Stat Cards Grid (With MoM Deltas & Promoted AI Insight Highlight) */}
+      {/* Needs Review Urgent Banner */}
+      {needsReviewCount > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 text-white flex flex-wrap items-center justify-between gap-3 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-xl">
+              <HelpCircle className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-sm tracking-tight">Needs Review: {needsReviewCount} Transactions Pending Classification</h4>
+              <p className="text-xs text-amber-100 mt-0.5">Low-confidence bank SMS matches require your categorization to train future matching.</p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setActiveTab(activeTab === 'needs_review' ? 'all' : 'needs_review')}
+            className="px-4 py-2 bg-white text-amber-800 hover:bg-amber-50 rounded-xl font-bold text-xs shadow-xs transition-colors cursor-pointer"
+          >
+            {activeTab === 'needs_review' ? 'View All Transactions' : 'Review Pending Now →'}
+          </button>
+        </div>
+      )}
+
+      {/* 4 Stat Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         
-        {/* Card 1: Total Spent This Month + MoM Delta */}
+        {/* Card 1: Total Spent */}
         <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs relative overflow-hidden flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <div className="p-2.5 bg-[#EAF7EF] text-[#16803C] rounded-xl flex items-center justify-center font-mono font-extrabold text-lg">
               ₹
             </div>
-            {/* MoM Delta Badge */}
             <div className={`flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full ${
               isSpentIncrease ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'bg-emerald-50 text-[#16803C] border border-emerald-200'
             }`}>
@@ -275,13 +310,12 @@ const Dashboard = () => {
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#16803C]" />
         </div>
 
-        {/* Card 2: Total Transactions + Delta */}
+        {/* Card 2: Total Transactions */}
         <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs relative overflow-hidden flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <div className="p-2.5 bg-[#FFF5DD] text-[#F59E0B] rounded-xl flex items-center justify-center">
               <ArrowRightLeft className="w-4.5 h-4.5" />
             </div>
-            {/* Transaction Count Delta Badge */}
             <div className="flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-amber-50 text-[#D97706] border border-amber-200">
               <span>{txCountDelta > 0 ? `+${txCountDelta}` : txCountDelta === 0 ? 'Same' : txCountDelta} vs {prevMonthName}</span>
             </div>
@@ -295,7 +329,7 @@ const Dashboard = () => {
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#F59E0B]" />
         </div>
 
-        {/* Card 3: Top Spending Category + Share % */}
+        {/* Card 3: Top Spending Category */}
         <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs relative overflow-hidden flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <div className="p-2.5 bg-[#F3EEFA] text-[#7655B8] rounded-xl flex items-center justify-center">
@@ -318,19 +352,37 @@ const Dashboard = () => {
           <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#7655B8]" />
         </div>
 
-        {/* Card 4: Surfaced AI Insight Highlight (Replaces Redundant Alert Count!) */}
-        <div className="bg-gradient-to-br from-white to-[#F3EEFA]/40 border border-purple-200/90 p-5 rounded-2xl shadow-xs relative overflow-hidden flex flex-col justify-between">
+        {/* Card 4: Needs Review / AI Card */}
+        <div 
+          onClick={() => setActiveTab(activeTab === 'needs_review' ? 'all' : 'needs_review')}
+          className={`border p-5 rounded-2xl shadow-xs relative overflow-hidden flex flex-col justify-between cursor-pointer transition-all ${
+            needsReviewCount > 0
+              ? 'bg-gradient-to-br from-amber-50 to-amber-100/50 border-amber-300 hover:border-amber-400'
+              : 'bg-gradient-to-br from-white to-[#F3EEFA]/40 border-purple-200/90'
+          }`}
+        >
           <div className="flex justify-between items-start">
-            <div className="p-2 bg-[#7655B8] text-white rounded-xl flex items-center justify-center">
-              <BrainCircuit className="w-4.5 h-4.5" />
+            <div className={`p-2 rounded-xl text-white ${needsReviewCount > 0 ? 'bg-amber-600' : 'bg-[#7655B8]'}`}>
+              {needsReviewCount > 0 ? <HelpCircle className="w-4.5 h-4.5" /> : <BrainCircuit className="w-4.5 h-4.5" />}
             </div>
-            <span className="text-[10px] font-extrabold text-[#7655B8] uppercase tracking-wider bg-purple-100 px-2 py-0.5 rounded-md">
-              AI Insight Highlight
+            <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md ${
+              needsReviewCount > 0 ? 'text-amber-800 bg-amber-200' : 'text-[#7655B8] bg-purple-100'
+            }`}>
+              {needsReviewCount > 0 ? 'Action Required' : 'AI Insight'}
             </span>
           </div>
 
           <div className="mt-3">
-            {topAnomaly ? (
+            {needsReviewCount > 0 ? (
+              <>
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                  {needsReviewCount} Pending Review
+                </h4>
+                <p className="text-[11px] font-semibold text-amber-800 mt-0.5">
+                  Click to classify low-confidence items
+                </p>
+              </>
+            ) : topAnomaly ? (
               <>
                 <h4 className="text-xs font-black text-slate-900 uppercase truncate tracking-wide">
                   {topAnomaly.merchant}
@@ -341,25 +393,17 @@ const Dashboard = () => {
               </>
             ) : (
               <>
-                <h4 className="text-xs font-bold text-slate-900">Spending Patterns Optimized</h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">No critical transaction anomalies detected.</p>
+                <h4 className="text-xs font-bold text-slate-900">Categorization 100% Verified</h4>
+                <p className="text-[11px] text-slate-500 mt-0.5">All SMS items cleanly classified.</p>
               </>
             )}
-
-            <Link 
-              to="/insights" 
-              className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#7655B8] hover:underline mt-2.5"
-            >
-              <span>View Full AI Report</span>
-              <ArrowRight className="w-3 h-3" />
-            </Link>
           </div>
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#7655B8]" />
+          <div className={`absolute bottom-0 left-0 right-0 h-1 ${needsReviewCount > 0 ? 'bg-amber-500' : 'bg-[#7655B8]'}`} />
         </div>
 
       </div>
 
-      {/* Single Consolidated Budget Warning Alert Block */}
+      {/* Budget Warnings */}
       {budgetAlerts.length > 0 && (
         <div className="p-5 rounded-2xl bg-[#FFF5F5] border border-rose-200 space-y-4 shadow-xs">
           <div className="flex items-center justify-between">
@@ -414,7 +458,7 @@ const Dashboard = () => {
         <div className="p-3.5 rounded-xl bg-[#EAF7EF] border border-emerald-200 flex justify-between items-center text-xs text-[#16803C] font-semibold shadow-xs">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4" />
-            <span>Showing transactions & metrics for category: <span className="font-black underline uppercase">{selectedCategory}</span> ({filteredTransactions.length} items)</span>
+            <span>Showing transactions for category: <span className="font-black underline uppercase">{selectedCategory}</span> ({filteredTransactions.length} items)</span>
           </div>
           <button
             onClick={() => setSelectedCategory(null)}
@@ -429,7 +473,7 @@ const Dashboard = () => {
       {/* Grid: Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Daily Spending Bar Chart with Direct Spike Flagging */}
+        {/* Daily Spending Bar Chart */}
         <div className="lg:col-span-2 bg-white border border-slate-200 p-6 rounded-2xl shadow-xs flex flex-col justify-between">
           <div className="flex justify-between items-center mb-6">
             <div>
@@ -441,7 +485,7 @@ const Dashboard = () => {
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Total debit amount logged per day • Click a bar to filter</p>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Total debit amount logged per day</p>
             </div>
             
             <select 
@@ -495,7 +539,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Category Spending Share Donut Chart (Interactive Click to Filter) */}
+        {/* Category Spending Share Donut Chart */}
         <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-xs flex flex-col justify-between">
           <div>
             <h3 className="text-base font-extrabold text-slate-900 mb-0.5">Spending Share</h3>
@@ -540,7 +584,6 @@ const Dashboard = () => {
                 </div>
               )}
               
-              {/* Center aggregate number overlay */}
               {pieData.length > 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-2xl font-black text-slate-900">₹{Math.round(totalSpent).toLocaleString('en-IN')}</span>
@@ -549,7 +592,6 @@ const Dashboard = () => {
               )}
             </div>
 
-            {/* Custom categorical legend list matching reference image */}
             {pieData.length > 0 && (
               <div className="mt-4 space-y-2 text-xs">
                 {pieData.slice(0, 6).map(item => {
@@ -589,23 +631,53 @@ const Dashboard = () => {
 
       </div>
 
-      {/* Recent Transactions List with Inline Anomaly Tags */}
+      {/* Transactions List with Tab Controls */}
       <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-xs space-y-5">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-base font-extrabold text-slate-900">
-              Recent Transactions {selectedCategory ? `(${selectedCategory})` : ''}
+              Transactions Log {selectedCategory ? `(${selectedCategory})` : ''}
             </h3>
-            <p className="text-xs text-slate-500 font-medium">Most recent credit & debit events logged</p>
+            <p className="text-xs text-slate-500 font-medium">Re-categorize low-confidence items inline to train the learning engine</p>
           </div>
 
-          <Link
-            to="/add"
-            className="flex items-center gap-1 text-xs font-bold text-[#16803C] hover:text-[#136e33] transition-all group"
-          >
-            <span>Log a new transaction</span>
-            <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-          </Link>
+          {/* Tab Filter Pills */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 text-xs font-bold self-start">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              All ({transactions.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab('needs_review')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                activeTab === 'needs_review' ? 'bg-amber-600 text-white shadow-xs' : 'text-amber-700 hover:text-amber-800'
+              }`}
+            >
+              <span>Needs Review</span>
+              {needsReviewCount > 0 && (
+                <span className="px-1.5 py-0.2 bg-amber-200 text-amber-900 text-[10px] rounded-full font-black">
+                  {needsReviewCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('debit')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === 'debit' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Debits
+            </button>
+
+            <button
+              onClick={() => setActiveTab('credit')}
+              className={`px-3 py-1.5 rounded-lg transition-all ${activeTab === 'credit' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Credits
+            </button>
+          </div>
         </div>
 
         {/* Transaction items list */}
@@ -616,6 +688,7 @@ const Dashboard = () => {
                 key={tx.id} 
                 tx={tx} 
                 anomaly={tx.merchant ? anomalyMap[tx.merchant.toLowerCase()] : null}
+                onRecategorize={handleRecategorize}
               />
             ))
           ) : (
