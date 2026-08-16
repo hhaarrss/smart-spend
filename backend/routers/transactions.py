@@ -160,70 +160,7 @@ async def create_transaction(
     return new_tx
 
 
-@router.get(
-    "/",
-    response_model=List[TransactionResponse],
-    summary="Retrieve all transactions with optional filters",
-)
-async def list_transactions(
-    category: Optional[str] = Query(None, description="Filter transactions by category"),
-    start_date: Optional[datetime] = Query(None, description="Start date for range filter"),
-    end_date: Optional[datetime] = Query(None, description="End date for range filter"),
-    type: Optional[str] = Query(None, description="Filter by transaction type ('debit' or 'credit')"),
-    user_id: Optional[int] = Query(None, description="Filter by user ID (admin/family only)"),
-    limit: int = Query(50, description="Max number of transactions to retrieve"),
-    offset: int = Query(0, description="Offset for pagination"),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-) -> List[Transaction]:
-    """
-    Lists and filters transactions belonging to the current user.
-    If a specific user_id is requested, verifies they are in the same family.
 
-    Args:
-        category (Optional[str]): Category to filter.
-        start_date (Optional[datetime]): From date.
-        end_date (Optional[datetime]): To date.
-        type (Optional[str]): Filter by transaction type ('debit' or 'credit').
-        user_id (Optional[int]): Query for another user's transactions.
-        limit (int): Pagination limit.
-        offset (int): Pagination offset.
-        current_user (User): Authenticated user.
-        db (AsyncSession): Database session.
-
-    Raises:
-        HTTPException: 403 Forbidden if trying to access data of a user outside their family group.
-
-    Returns:
-        List[Transaction]: List of transaction database records.
-    """
-    query_target_user_id = current_user.id
-
-    # If querying another user, ensure they are family members
-    if user_id and user_id != current_user.id:
-        if not current_user.family_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You must be part of a family group to query other users' transactions."
-            )
-        
-        # Verify the requested user is in the same family
-        member_check = select(User).where(and_(User.id == user_id, User.family_id == current_user.family_id))
-        res = await db.execute(member_check)
-        if not res.scalars().first():
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You can only view transactions of members in your own family group."
-            )
-        query_target_user_id = user_id
-
-    # Build conditional query
-    conditions = [Transaction.user_id == query_target_user_id]
-
-    if category:
-        conditions.append(Transaction.category.ilike(category))
-    if start_date:
-        conditions.append(Transaction.date >= start_date)
 
 
 @router.post(
@@ -353,8 +290,12 @@ async def list_transactions(
     if category:
         conditions.append(Transaction.category.ilike(category))
     if start_date:
+        if start_date.tzinfo is None:
+            start_date = start_date.replace(tzinfo=timezone.utc)
         conditions.append(Transaction.date >= start_date)
     if end_date:
+        if end_date.tzinfo is None:
+            end_date = end_date.replace(tzinfo=timezone.utc)
         conditions.append(Transaction.date <= end_date)
     if type:
         conditions.append(Transaction.type == type.lower())

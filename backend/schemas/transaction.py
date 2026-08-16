@@ -16,7 +16,7 @@ class TransactionBase(BaseModel):
     merchant: Optional[str] = Field(None, max_length=255, description="Name of the merchant.")
     bank: Optional[str] = Field(None, max_length=50, description="Name of the banking institution.")
     account_last4: Optional[str] = Field(
-        None, min_length=2, max_length=4, description="Last 2 to 4 digits/identifier of the account number."
+        None, max_length=50, description="Last digits/identifier of the account number."
     )
     date: datetime = Field(..., description="The transaction occurrence date and time.")
     source: str = Field(

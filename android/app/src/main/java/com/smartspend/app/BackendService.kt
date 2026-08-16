@@ -80,7 +80,8 @@ interface BackendService {
     ): Response<SmsIngestionResponse>
 
     companion object {
-        private const val BASE_URL = "https://expense-tracker-pk4d.onrender.com/"
+        // Change to "https://expense-tracker-pk4d.onrender.com/" when cloud database is connected on Render
+        private const val BASE_URL = "http://192.168.29.227:8000/"
 
         /**
          * Creates a configured Retrofit BackendService instance.

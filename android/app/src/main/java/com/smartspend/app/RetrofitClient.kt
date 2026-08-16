@@ -1,14 +1,10 @@
 package com.smartspend.app
 
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-
 /**
  * Singleton Retrofit client providing the shared BackendService instance.
- * Includes HTTP logging for debug builds.
+ * Dynamically retrieves configured service instance.
  */
 object RetrofitClient {
-    val apiService: BackendService by lazy {
-        BackendService.create()
-    }
+    val apiService: BackendService
+        get() = BackendService.create()
 }

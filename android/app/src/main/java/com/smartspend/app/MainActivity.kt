@@ -143,11 +143,16 @@ class MainActivity : ComponentActivity() {
                     if (response.isSuccessful) {
                         val loginResponse = response.body()
                         if (loginResponse != null) {
-                            // Persist token and email
-                            sharedPrefs.edit()
+                            val oldEmail = sharedPrefs.getString("user_email", "")
+                            val edit = sharedPrefs.edit()
                                 .putString("jwt_token", loginResponse.access_token)
                                 .putString("user_email", email)
-                                .apply()
+                            
+                            if (oldEmail != email) {
+                                edit.putInt("total_synced", 0)
+                                    .putString("last_sms", getString(R.string.label_no_sms))
+                            }
+                            edit.apply()
 
                             Toast.makeText(this@MainActivity, "Login successful!", Toast.LENGTH_SHORT).show()
                             showDashboard()
@@ -229,8 +234,12 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val testSms = "ICICI Bank Acct XX debited for Rs 10.00 on 27-May-26; pratiktod*** credited. UPI:***** Call 18002662 for dispute."
-        val testSender = "ICICIB"
+        val randomAmount = (50..2500).random()
+        val merchants = listOf("Blinkit", "Swiggy", "Zomato", "Amazon", "Uber", "DMart", "BigBasket")
+        val randomMerchant = merchants.random()
+        val timestamp = System.currentTimeMillis().toString().takeLast(6)
+        val testSms = "ICICI Bank Acct XX373 debited for Rs $randomAmount.00 on 10-Aug-26; $randomMerchant credited. UPI:$timestamp."
+        val testSender = "AD-ICICIB"
 
         binding.btnTestSms.isEnabled = false
 
@@ -244,32 +253,35 @@ class MainActivity : ComponentActivity() {
                     if (response.isSuccessful) {
                         val respBody = response.body()
                         if (respBody != null && respBody.success) {
-                            // Update local stats
                             val newCount = sharedPrefs.getInt("total_synced", 0) + 1
                             sharedPrefs.edit()
                                 .putString("last_sms", testSms)
                                 .putInt("total_synced", newCount)
                                 .apply()
 
-                            Toast.makeText(this@MainActivity, "Test SMS synced successfully!", Toast.LENGTH_LONG).show()
+                            val cat = respBody.transaction?.category ?: "Expense"
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Synced ₹$randomAmount at $randomMerchant ($cat)! ✅",
+                                Toast.LENGTH_LONG
+                            ).show()
                             updateDashboard()
                         } else {
-                            val errMsg = respBody?.message ?: "Duplicate transaction detected"
+                            val errMsg = respBody?.message ?: "Sync rejected by server"
                             Toast.makeText(this@MainActivity, errMsg, Toast.LENGTH_LONG).show()
                         }
                     } else if (response.code() == 401) {
-                        // Token expired — clear and redirect to login
                         Toast.makeText(this@MainActivity, "Session expired — please login again", Toast.LENGTH_LONG).show()
                         sharedPrefs.edit().remove("jwt_token").remove("user_email").apply()
                         showLogin()
                     } else {
-                        Toast.makeText(this@MainActivity, "Failed: ${response.code()} ${response.message()}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, "Server Error (${response.code()})", Toast.LENGTH_LONG).show()
                     }
                     binding.btnTestSms.isEnabled = true
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    Toast.makeText(this@MainActivity, "Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MainActivity, "Connection Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
                     binding.btnTestSms.isEnabled = true
                 }
             }
@@ -285,6 +297,8 @@ class MainActivity : ComponentActivity() {
         sharedPrefs.edit()
             .remove("jwt_token")
             .remove("user_email")
+            .remove("total_synced")
+            .remove("last_sms")
             .apply()
 
         Toast.makeText(this, "Logged out", Toast.LENGTH_SHORT).show()
