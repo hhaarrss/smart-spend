@@ -40,9 +40,10 @@ def mask_url(url: str | None) -> str:
 # Find and load .env file from any directory
 dotenv_path = find_dotenv(usecwd=True)
 if not dotenv_path:
-    # Try parent directory
     dotenv_path = str(Path(__file__).resolve().parent / '.env')
-load_dotenv(dotenv_path, override=True)
+
+# Do NOT override system environment variables (e.g., Render Dashboard environment variables)
+load_dotenv(dotenv_path, override=False)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -51,7 +52,7 @@ if not DATABASE_URL:
     parent_dotenv_path = str(Path(__file__).resolve().parent.parent / '.env')
     if os.path.exists(parent_dotenv_path):
         dotenv_path = parent_dotenv_path
-        load_dotenv(dotenv_path, override=True)
+        load_dotenv(dotenv_path, override=False)
         DATABASE_URL = os.getenv("DATABASE_URL")
 
 print(f"Debug: Loaded env from: {dotenv_path} | DATABASE_URL: {mask_url(DATABASE_URL)}")
