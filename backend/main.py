@@ -82,8 +82,8 @@ app = FastAPI(
         "JWT Authentication, Redis + Celery workers, and Alembic migrations."
     ),
     version="1.0.0",
-    docs_url="/docs" if APP_ENV == "development" else None,
-    redoc_url="/redoc" if APP_ENV == "development" else None,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 # Set up CORS middleware
@@ -92,11 +92,13 @@ ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
+    "https://expense-tracker-pk4d.onrender.com",
+    "*",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
