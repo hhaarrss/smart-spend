@@ -11,27 +11,32 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.smartspend.app.databinding.ActivityMainBinding
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Main entry point for the SmartSpend Android companion app.
  *
- * Manages two UI states via ViewBinding:
- * - Login screen: email/password form that authenticates against the FastAPI backend
- * - Dashboard: shows sync stats, connection status, and actions (test SMS, logout)
- *
- * JWT tokens are persisted in SharedPreferences. If a valid token exists on launch,
- * the login screen is skipped entirely.
+ * Features:
+ * - Tab 1 (Insights & Analytics): Monthly Spend Total, Category Breakdown, MoM AI Insights.
+ * - Tab 2 (Transactions Feed): Scrollable list of all synced bank expenses.
+ * - Tab 3 (Sync Hub): Device pairing, SMS listener status, test sync trigger.
  */
 class MainActivity : ComponentActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var sharedPrefs: SharedPreferences
 
+    private val transactionAdapter = TransactionAdapter()
+    private val categoryAdapter = CategoryAdapter()
+
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == "total_synced" || key == "last_sms" || key == "jwt_token") {
-            updateDashboard()
+            updateSyncHubStats()
         }
     }
 
@@ -54,17 +59,49 @@ class MainActivity : ComponentActivity() {
         sharedPrefs = getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
         sharedPrefs.registerOnSharedPreferenceChangeListener(prefsListener)
 
+        setupRecyclerViews()
+        setupTabNavigation()
         checkPermissions()
         setupListeners()
         navigateToCorrectScreen()
     }
 
-    // ──────────────── Navigation ────────────────
+    private fun setupRecyclerViews() {
+        binding.rvTransactions.layoutManager = LinearLayoutManager(this)
+        binding.rvTransactions.adapter = transactionAdapter
 
-    /**
-     * Checks SharedPreferences for an existing JWT token.
-     * If found, skips login and shows the dashboard directly.
-     */
+        binding.rvCategories.layoutManager = LinearLayoutManager(this)
+        binding.rvCategories.adapter = categoryAdapter
+    }
+
+    // ──────────────── Tab Navigation ────────────────
+
+    private fun setupTabNavigation() {
+        binding.tabAnalytics.setOnClickListener { switchTab(0) }
+        binding.tabFeed.setOnClickListener { switchTab(1) }
+        binding.tabSyncHub.setOnClickListener { switchTab(2) }
+    }
+
+    private fun switchTab(tabIndex: Int) {
+        val activeColor = ContextCompat.getColor(this, R.color.indigo_light)
+        val inactiveColor = ContextCompat.getColor(this, R.color.text_secondary)
+
+        binding.tabAnalytics.setTextColor(if (tabIndex == 0) activeColor else inactiveColor)
+        binding.tabFeed.setTextColor(if (tabIndex == 1) activeColor else inactiveColor)
+        binding.tabSyncHub.setTextColor(if (tabIndex == 2) activeColor else inactiveColor)
+
+        binding.viewAnalytics.visibility = if (tabIndex == 0) View.VISIBLE else View.GONE
+        binding.viewFeed.visibility = if (tabIndex == 1) View.VISIBLE else View.GONE
+        binding.viewSyncHub.visibility = if (tabIndex == 2) View.VISIBLE else View.GONE
+
+        // Refresh data when switching to Analytics or Feed
+        if (tabIndex == 0 || tabIndex == 1) {
+            fetchDashboardData()
+        }
+    }
+
+    // ──────────────── Screen Navigation ────────────────
+
     private fun navigateToCorrectScreen() {
         val token = sharedPrefs.getString("jwt_token", null)
         if (token.isNullOrEmpty()) {
@@ -74,53 +111,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Switches the visible section to the login form.
-     */
     private fun showLogin() {
         binding.loginSection.visibility = View.VISIBLE
         binding.dashboardSection.visibility = View.GONE
-        // Clear input fields
         binding.etEmail.text?.clear()
         binding.etPassword.text?.clear()
         binding.tvLoginError.visibility = View.GONE
     }
 
-    /**
-     * Switches the visible section to the dashboard and refreshes displayed data.
-     */
     private fun showDashboard() {
         binding.loginSection.visibility = View.GONE
         binding.dashboardSection.visibility = View.VISIBLE
-        updateDashboard()
+        updateSyncHubStats()
+        switchTab(0) // Default to Analytics Tab
     }
 
-    // ──────────────── Listeners ────────────────
-
-    /**
-     * Wires up click listeners for all interactive elements.
-     */
     private fun setupListeners() {
-        binding.btnLogin.setOnClickListener {
-            performLogin()
-        }
-
-        binding.btnTestSms.setOnClickListener {
-            sendTestSms()
-        }
-
-        binding.btnLogout.setOnClickListener {
-            performLogout()
-        }
+        binding.btnLogin.setOnClickListener { performLogin() }
+        binding.btnTestSms.setOnClickListener { sendTestSms() }
+        binding.btnLogout.setOnClickListener { performLogout() }
     }
 
     // ──────────────── Login ────────────────
 
-    /**
-     * Validates input fields and calls the /auth/login endpoint.
-     * On success, stores the JWT token and user email in SharedPreferences
-     * and transitions to the dashboard.
-     */
     private fun performLogin() {
         val email = binding.etEmail.text.toString().trim()
         val password = binding.etPassword.text.toString().trim()
@@ -130,7 +143,6 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        // Disable button and show loading state
         binding.btnLogin.isEnabled = false
         binding.btnLogin.text = getString(R.string.btn_logging_in)
         binding.tvLoginError.visibility = View.GONE
@@ -138,7 +150,6 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 val response = RetrofitClient.apiService.login(email, password)
-
                 runOnUiThread {
                     if (response.isSuccessful) {
                         val loginResponse = response.body()
@@ -147,7 +158,7 @@ class MainActivity : ComponentActivity() {
                             val edit = sharedPrefs.edit()
                                 .putString("jwt_token", loginResponse.access_token)
                                 .putString("user_email", email)
-                            
+
                             if (oldEmail != email) {
                                 edit.putInt("total_synced", 0)
                                     .putString("last_sms", getString(R.string.label_no_sms))
@@ -167,8 +178,6 @@ class MainActivity : ComponentActivity() {
                         }
                         showLoginError(errorMsg)
                     }
-
-                    // Reset button state
                     binding.btnLogin.isEnabled = true
                     binding.btnLogin.text = getString(R.string.btn_login)
                 }
@@ -182,49 +191,72 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Displays an error message on the login form.
-     */
     private fun showLoginError(message: String) {
         binding.tvLoginError.text = message
         binding.tvLoginError.visibility = View.VISIBLE
     }
 
-    // ──────────────── Dashboard ────────────────
+    // ──────────────── Data Fetching & Sync ────────────────
 
-    /**
-     * Reads stats from SharedPreferences and updates all dashboard UI elements.
-     */
-    private fun updateDashboard() {
-        val lastSms = sharedPrefs.getString("last_sms", getString(R.string.label_no_sms))
-        val totalSynced = sharedPrefs.getInt("total_synced", 0)
-        val userEmail = sharedPrefs.getString("user_email", "—")
-        val token = sharedPrefs.getString("jwt_token", "")
+    private fun fetchDashboardData() {
+        val token = sharedPrefs.getString("jwt_token", "") ?: return
+        val authHeader = "Bearer $token"
+        val currentMonth = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
 
-        binding.tvLastSms.text = lastSms
-        binding.tvTotalSynced.text = totalSynced.toString()
-        binding.tvUserEmail.text = userEmail
+        lifecycleScope.launch {
+            try {
+                // 1. Fetch Transactions List
+                val txResponse = RetrofitClient.apiService.getTransactions(authHeader, limit = 50)
+                if (txResponse.isSuccessful && txResponse.body() != null) {
+                    val txList = txResponse.body()!!
+                    runOnUiThread {
+                        transactionAdapter.updateData(txList)
+                        binding.tvFeedCount.text = "${txList.size} Transactions"
+                    }
+                }
 
-        // Connection status based on token presence
-        if (!token.isNullOrEmpty()) {
-            binding.tvStatus.text = getString(R.string.status_connected)
-            binding.viewStatusDot.setBackgroundColor(
-                ContextCompat.getColor(this, R.color.emerald_success)
-            )
-        } else {
-            binding.tvStatus.text = getString(R.string.status_disconnected)
-            binding.viewStatusDot.setBackgroundColor(
-                ContextCompat.getColor(this, R.color.rose_error)
-            )
+                // 2. Fetch Category Summary for Current Month
+                val catResponse = RetrofitClient.apiService.getCategorySummary(authHeader, currentMonth)
+                if (catResponse.isSuccessful && catResponse.body() != null) {
+                    val catMap = catResponse.body()!!
+                    val totalSpend = catMap.values.sum()
+                    runOnUiThread {
+                        categoryAdapter.updateData(catMap)
+                        binding.tvTotalMonthlySpend.text = "₹%.2f".format(totalSpend)
+                    }
+                }
+
+                // 3. Fetch Insights Summary
+                val insightsResponse = RetrofitClient.apiService.getInsightsSummary(authHeader)
+                if (insightsResponse.isSuccessful && insightsResponse.body() != null) {
+                    val insights = insightsResponse.body()!!
+                    val changes = insights.spending_changes
+                    runOnUiThread {
+                        if (!changes.isNullOrEmpty()) {
+                            val first = changes[0]
+                            val dirSymbol = if (first.direction == "up") "📈" else "📉"
+                            binding.tvInsightsText.text = "$dirSymbol Your ${first.category} spend is ${first.direction} by ${first.change_percent.toInt()}% compared to last month."
+                        } else {
+                            binding.tvInsightsText.text = "✅ Spending is balanced across all categories this month."
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore transient errors while fetching
+            }
         }
+    }
+
+    private fun updateSyncHubStats() {
+        val lastSms = sharedPrefs.getString("last_sms", getString(R.string.label_no_sms))
+        val userEmail = sharedPrefs.getString("user_email", "—")
+
+        binding.tvUserEmail.text = userEmail
+        binding.tvLastSms.text = lastSms
     }
 
     // ──────────────── Test SMS ────────────────
 
-    /**
-     * Sends a hardcoded HDFC bank SMS to the backend using the stored JWT token.
-     * Handles 401 by clearing the token and switching back to login.
-     */
     private fun sendTestSms() {
         val token = sharedPrefs.getString("jwt_token", "") ?: ""
 
@@ -265,7 +297,10 @@ class MainActivity : ComponentActivity() {
                                 "Synced ₹$randomAmount at $randomMerchant ($cat)! ✅",
                                 Toast.LENGTH_LONG
                             ).show()
-                            updateDashboard()
+
+                            // Immediately re-fetch analytics to sync mobile and web views
+                            fetchDashboardData()
+                            updateSyncHubStats()
                         } else {
                             val errMsg = respBody?.message ?: "Sync rejected by server"
                             Toast.makeText(this@MainActivity, errMsg, Toast.LENGTH_LONG).show()
@@ -290,9 +325,6 @@ class MainActivity : ComponentActivity() {
 
     // ──────────────── Logout ────────────────
 
-    /**
-     * Clears all stored credentials and navigates back to the login screen.
-     */
     private fun performLogout() {
         sharedPrefs.edit()
             .remove("jwt_token")
@@ -307,9 +339,6 @@ class MainActivity : ComponentActivity() {
 
     // ──────────────── Permissions ────────────────
 
-    /**
-     * Requests SMS permissions if not already granted.
-     */
     private fun checkPermissions() {
         val permissions = arrayOf(
             Manifest.permission.RECEIVE_SMS,
@@ -332,12 +361,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Re-check token validity on resume (token may have been cleared by SmsReceiver)
         val token = sharedPrefs.getString("jwt_token", null)
         if (token.isNullOrEmpty() && binding.dashboardSection.visibility == View.VISIBLE) {
             showLogin()
         } else if (!token.isNullOrEmpty() && binding.dashboardSection.visibility == View.VISIBLE) {
-            updateDashboard()
+            fetchDashboardData()
+            updateSyncHubStats()
+            lifecycleScope.launch {
+                SmsReceiver.flushOfflineQueue(this@MainActivity, token)
+            }
         }
     }
 }

@@ -6,8 +6,10 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
+import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.Query
 
 /**
  * Payload for SMS ingestion endpoint.
@@ -26,7 +28,7 @@ data class LoginResponse(
 )
 
 /**
- * Transaction data model returned inside SMS ingestion response.
+ * Transaction data model returned inside API responses.
  */
 data class TransactionData(
     val id: Int,
@@ -55,13 +57,31 @@ data class SmsIngestionResponse(
 )
 
 /**
+ * Data model for spending change item inside Insights summary.
+ */
+data class SpendingChangeItem(
+    val category: String,
+    val change_percent: Double,
+    val direction: String
+)
+
+/**
+ * Response model for the /insights/summary endpoint.
+ */
+data class InsightsSummaryData(
+    val spending_changes: List<SpendingChangeItem>?,
+    val anomalies: List<Map<String, Any>>?,
+    val recurring: List<Map<String, Any>>?,
+    val budget_alerts: List<Map<String, Any>>?
+)
+
+/**
  * Retrofit service interface for all SmartSpend backend API calls.
  */
 interface BackendService {
 
     /**
      * Authenticate user and obtain a JWT access token.
-     * Uses form-urlencoded body matching FastAPI's OAuth2PasswordRequestForm.
      */
     @FormUrlEncoded
     @POST("/auth/login")
@@ -79,8 +99,34 @@ interface BackendService {
         @Body payload: SmsPayload
     ): Response<SmsIngestionResponse>
 
+    /**
+     * Fetch user's transactions list.
+     */
+    @GET("/transactions/")
+    suspend fun getTransactions(
+        @Header("Authorization") token: String,
+        @Query("limit") limit: Int = 50,
+        @Query("offset") offset: Int = 0
+    ): Response<List<TransactionData>>
+
+    /**
+     * Fetch category totals summary for a given month (YYYY-MM).
+     */
+    @GET("/transactions/summary")
+    suspend fun getCategorySummary(
+        @Header("Authorization") token: String,
+        @Query("month") month: String
+    ): Response<Map<String, Double>>
+
+    /**
+     * Fetch analytical financial insights summary.
+     */
+    @GET("/insights/summary")
+    suspend fun getInsightsSummary(
+        @Header("Authorization") token: String
+    ): Response<InsightsSummaryData>
+
     companion object {
-        // Change to "https://expense-tracker-pk4d.onrender.com/" when cloud database is connected on Render
         private const val BASE_URL = "http://192.168.29.227:8000/"
 
         /**

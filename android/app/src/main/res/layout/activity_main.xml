@@ -50,7 +50,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="SMS Auto-Sync Companion Service"
+                android:text="SMS Auto-Sync & Analytics Companion"
                 android:textColor="@color/text_tertiary"
                 android:textSize="14sp"
                 android:layout_marginBottom="40dp" />
@@ -172,219 +172,323 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- ==================== DASHBOARD SECTION ==================== -->
-    <ScrollView
+    <!-- ==================== MAIN APPLICATION SECTION ==================== -->
+    <LinearLayout
         android:id="@+id/dashboardSection"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
+        android:orientation="vertical"
         android:visibility="gone">
 
+        <!-- Top Header bar -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="24dp">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="12dp"
+            android:background="@color/card_dark">
 
-            <!-- App Header -->
+            <ImageView
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:src="@drawable/ic_smartspend_logo"
+                android:contentDescription="SmartSpend Logo"
+                android:background="@drawable/bg_gradient_button"
+                android:padding="8dp"
+                android:layout_marginEnd="12dp" />
+
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="16dp">
-
-                <ImageView
-                    android:layout_width="48dp"
-                    android:layout_height="48dp"
-                    android:src="@drawable/ic_smartspend_logo"
-                    android:contentDescription="SmartSpend Logo"
-                    android:background="@drawable/bg_gradient_button"
-                    android:padding="10dp"
-                    android:layout_marginEnd="14dp" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="SmartSpend Companion"
-                        android:textColor="@color/text_primary"
-                        android:textSize="20sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="SMS Auto-Sync active in background"
-                        android:textColor="@color/emerald_success"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- How App Works Explanation Banner -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@drawable/bg_card_dark"
-                android:padding="16dp"
-                android:layout_marginBottom="16dp">
+                android:layout_weight="1"
+                android:orientation="vertical">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="💡 WHAT THIS APP DOES"
-                    android:textColor="@color/indigo_light"
-                    android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.08"
-                    android:layout_marginBottom="6dp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="This Android companion app runs silently in the background. Whenever you receive a bank debit SMS (ICICI, HDFC, SBI, Axis, etc.), it automatically parses and syncs the expense to your Web Dashboard."
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp"
-                    android:lineSpacingExtra="2dp" />
-            </LinearLayout>
-
-            <!-- Logged in user info -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="@drawable/bg_card_dark"
-                android:padding="14dp"
-                android:layout_marginBottom="16dp">
-
-                <View
-                    android:layout_width="8dp"
-                    android:layout_height="8dp"
-                    android:background="@color/indigo_primary"
-                    android:layout_marginEnd="10dp" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Logged in Account:"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="12sp" />
+                    android:text="SmartSpend Companion"
+                    android:textColor="@color/text_primary"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tvUserEmail"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="@color/indigo_light"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
+                    android:textSize="11sp" />
             </LinearLayout>
 
-            <!-- Connection Status Card -->
+            <TextView
+                android:id="@+id/tvStatusBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🟢 Sync Active"
+                android:textColor="@color/emerald_success"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- 3-Tab Selector Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:orientation="horizontal"
+            android:background="@color/dark_background">
+
+            <Button
+                android:id="@+id/tabAnalytics"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:text="📊 Insights"
+                android:textColor="@color/indigo_light"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/tabFeed"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:text="💸 Feed"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+
+            <Button
+                android:id="@+id/tabSyncHub"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:text="⚡ Sync Hub"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textAllCaps="false"
+                android:stateListAnimator="@null" />
+        </LinearLayout>
+
+        <!-- TAB 1: ANALYTICS & INSIGHTS VIEW -->
+        <ScrollView
+            android:id="@+id/viewAnalytics"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true"
+            android:visibility="visible">
+
             <LinearLayout
-                android:id="@+id/cardStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:background="@drawable/bg_card_dark"
-                android:padding="18dp"
-                android:layout_marginBottom="16dp">
+                android:orientation="vertical"
+                android:padding="20dp">
 
-                <View
-                    android:id="@+id/viewStatusDot"
-                    android:layout_width="12dp"
-                    android:layout_height="12dp"
-                    android:background="@color/emerald_success"
-                    android:layout_marginEnd="14dp" />
-
+                <!-- Monthly Spend Card -->
                 <LinearLayout
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="20dp"
+                    android:layout_marginBottom="16dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="CONNECTION STATUS"
+                        android:text="TOTAL MONTHLY SPENDING (AUG 2026)"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.08" />
 
                     <TextView
-                        android:id="@+id/tvStatus"
+                        android:id="@+id/tvTotalMonthlySpend"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Connected to Local Backend"
+                        android:text="₹0.00"
                         android:textColor="@color/text_primary"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:layout_marginTop="2dp" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <!-- Stats Grid -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="20dp"
-                android:baselineAligned="false">
-
-                <!-- Total Synced Card -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:background="@drawable/bg_card_dark"
-                    android:padding="18dp"
-                    android:layout_marginEnd="8dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="TOTAL SYNCED"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.05" />
-
-                    <TextView
-                        android:id="@+id/tvTotalSynced"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0"
-                        android:textColor="@color/emerald_success"
-                        android:textSize="30sp"
+                        android:textSize="32sp"
                         android:textStyle="bold"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
 
-                <!-- Last SMS Ingested Preview Card -->
+                <!-- AI Insights / MoM Change Alert Card -->
                 <LinearLayout
-                    android:layout_width="0dp"
+                    android:id="@+id/cardInsightsAlert"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:orientation="vertical"
                     android:background="@drawable/bg_card_dark"
-                    android:padding="18dp"
-                    android:layout_marginStart="8dp">
+                    android:padding="16dp"
+                    android:layout_marginBottom="16dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="LAST SMS SYNCED"
+                        android:text="🤖 SMART SPENDING INSIGHTS"
+                        android:textColor="@color/indigo_light"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.08"
+                        android:layout_marginBottom="6dp" />
+
+                    <TextView
+                        android:id="@+id/tvInsightsText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Analyzing your historical category trends..."
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:lineSpacingExtra="2dp" />
+                </LinearLayout>
+
+                <!-- Category Breakdown Title -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="CATEGORY BREAKDOWN"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08"
+                    android:layout_marginBottom="10dp" />
+
+                <!-- Category RecyclerView -->
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvCategories"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false" />
+
+            </LinearLayout>
+        </ScrollView>
+
+        <!-- TAB 2: TRANSACTIONS FEED VIEW -->
+        <LinearLayout
+            android:id="@+id/viewFeed"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="RECENT SYNCED TRANSACTIONS"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08" />
+
+                <TextView
+                    android:id="@+id/tvFeedCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0 Items"
+                    android:textColor="@color/indigo_light"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvTransactions"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </LinearLayout>
+
+        <!-- TAB 3: SYNC HUB & SETTINGS VIEW -->
+        <ScrollView
+            android:id="@+id/viewSyncHub"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <!-- Connection Card -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="18dp"
+                    android:layout_marginBottom="16dp">
+
+                    <View
+                        android:layout_width="12dp"
+                        android:layout_height="12dp"
+                        android:background="@color/emerald_success"
+                        android:layout_marginEnd="14dp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="CONNECTION STATUS"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.08" />
+
+                        <TextView
+                            android:id="@+id/tvSyncHubStatus"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Connected to Local Backend (192.168.29.227:8000)"
+                            android:textColor="@color/text_primary"
+                            android:textSize="14sp"
+                            android:textStyle="bold"
+                            android:layout_marginTop="2dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Last SMS Synced -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@drawable/bg_card_dark"
+                    android:padding="18dp"
+                    android:layout_marginBottom="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="LAST SMS INGESTED"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp"
                         android:textStyle="bold"
@@ -396,41 +500,40 @@
                         android:layout_height="wrap_content"
                         android:text="@string/label_no_sms"
                         android:textColor="@color/text_tertiary"
-                        android:textSize="11sp"
-                        android:maxLines="3"
-                        android:ellipsize="end"
+                        android:textSize="12sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
+
+                <!-- Trigger Test SMS Button -->
+                <Button
+                    android:id="@+id/btnTestSms"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:background="@drawable/bg_gradient_button"
+                    android:text="⚡ Trigger Test Bank SMS Sync"
+                    android:textColor="@color/white"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:stateListAnimator="@null"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Logout Button -->
+                <Button
+                    android:id="@+id/btnLogout"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:background="@android:color/transparent"
+                    android:text="Sign Out of Device"
+                    android:textColor="@color/rose_error"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="false"
+                    android:stateListAnimator="@null" />
+
             </LinearLayout>
+        </ScrollView>
 
-            <!-- Trigger Test SMS Button -->
-            <Button
-                android:id="@+id/btnTestSms"
-                android:layout_width="match_parent"
-                android:layout_height="54dp"
-                android:background="@drawable/bg_gradient_button"
-                android:text="⚡ Trigger Test Bank SMS Sync"
-                android:textColor="@color/white"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:textAllCaps="false"
-                android:stateListAnimator="@null"
-                android:layout_marginBottom="16dp" />
-
-            <!-- Logout Button -->
-            <Button
-                android:id="@+id/btnLogout"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:background="@android:color/transparent"
-                android:text="Sign Out of Device"
-                android:textColor="@color/rose_error"
-                android:textSize="13sp"
-                android:textStyle="bold"
-                android:textAllCaps="false"
-                android:stateListAnimator="@null" />
-
-        </LinearLayout>
-    </ScrollView>
+    </LinearLayout>
 
 </FrameLayout>
