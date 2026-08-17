@@ -16,61 +16,61 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:gravity="center"
+            android:orientation="vertical"
             android:padding="32dp">
 
             <!-- Brand Logo -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_marginBottom="12dp"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="12dp">
+                android:orientation="horizontal">
 
                 <ImageView
                     android:layout_width="52dp"
                     android:layout_height="52dp"
-                    android:src="@drawable/ic_smartspend_logo"
-                    android:contentDescription="SmartSpend Logo"
+                    android:layout_marginEnd="12dp"
                     android:background="@drawable/bg_gradient_button"
+                    android:contentDescription="SmartSpend Logo"
                     android:padding="10dp"
-                    android:layout_marginEnd="12dp" />
+                    android:src="@drawable/ic_smartspend_logo" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:letterSpacing="0.02"
                     android:text="@string/app_name"
                     android:textColor="@color/text_primary"
                     android:textSize="28sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.02" />
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="SMS Auto-Sync & Analytics Companion"
+                android:layout_marginBottom="40dp"
+                android:text="SMS Auto-Sync &amp; Analytics Companion"
                 android:textColor="@color/text_tertiary"
-                android:textSize="14sp"
-                android:layout_marginBottom="40dp" />
+                android:textSize="14sp" />
 
             <!-- Login Card -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
                 android:background="@drawable/bg_card_dark"
+                android:orientation="vertical"
                 android:padding="28dp">
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="3dp"
-                    android:background="@drawable/bg_gradient_button"
-                    android:layout_marginTop="-28dp"
                     android:layout_marginStart="-28dp"
+                    android:layout_marginTop="-28dp"
                     android:layout_marginEnd="-28dp"
-                    android:layout_marginBottom="24dp" />
+                    android:layout_marginBottom="24dp"
+                    android:background="@drawable/bg_gradient_button" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -83,77 +83,77 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="28dp"
                     android:text="Sign in to pair your Android device with your Expense Dashboard"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
-                    android:layout_marginTop="4dp"
-                    android:layout_marginBottom="28dp" />
+                    android:textSize="13sp" />
 
                 <!-- Error message -->
                 <TextView
                     android:id="@+id/tvLoginError"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
                     android:background="@color/rose_surface"
                     android:padding="12dp"
                     android:textColor="@color/rose_error"
                     android:textSize="12sp"
-                    android:visibility="gone"
-                    android:layout_marginBottom="16dp" />
+                    android:visibility="gone" />
 
                 <!-- Email Input -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:letterSpacing="0.1"
                     android:text="EMAIL ADDRESS"
                     android:textColor="@color/text_secondary"
                     android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.1"
-                    android:layout_marginBottom="8dp" />
+                    android:textStyle="bold" />
 
                 <EditText
                     android:id="@+id/etEmail"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
+                    android:layout_marginBottom="20dp"
+                    android:autofillHints="emailAddress"
                     android:background="@drawable/bg_input_dark"
                     android:hint="@string/hint_email"
-                    android:textColorHint="@color/text_tertiary"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
+                    android:importantForAutofill="yes"
                     android:inputType="textEmailAddress"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
-                    android:layout_marginBottom="20dp"
-                    android:importantForAutofill="yes"
-                    android:autofillHints="emailAddress" />
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_tertiary"
+                    android:textSize="14sp" />
 
                 <!-- Password Input -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:letterSpacing="0.1"
                     android:text="PASSWORD"
                     android:textColor="@color/text_secondary"
                     android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.1"
-                    android:layout_marginBottom="8dp" />
+                    android:textStyle="bold" />
 
                 <EditText
                     android:id="@+id/etPassword"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
+                    android:layout_marginBottom="28dp"
+                    android:autofillHints="password"
                     android:background="@drawable/bg_input_dark"
                     android:hint="@string/hint_password"
-                    android:textColorHint="@color/text_tertiary"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
+                    android:importantForAutofill="yes"
                     android:inputType="textPassword"
                     android:paddingStart="16dp"
                     android:paddingEnd="16dp"
-                    android:layout_marginBottom="28dp"
-                    android:importantForAutofill="yes"
-                    android:autofillHints="password" />
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_tertiary"
+                    android:textSize="14sp" />
 
                 <!-- Login Button -->
                 <Button
@@ -161,12 +161,12 @@
                     android:layout_width="match_parent"
                     android:layout_height="54dp"
                     android:background="@drawable/bg_gradient_button"
+                    android:stateListAnimator="@null"
                     android:text="@string/btn_login"
+                    android:textAllCaps="false"
                     android:textColor="@color/white"
                     android:textSize="15sp"
-                    android:textStyle="bold"
-                    android:textAllCaps="false"
-                    android:stateListAnimator="@null" />
+                    android:textStyle="bold" />
 
             </LinearLayout>
         </LinearLayout>
@@ -184,22 +184,22 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
+            android:background="@color/dark_surface"
             android:gravity="center_vertical"
+            android:orientation="horizontal"
             android:paddingStart="20dp"
-            android:paddingEnd="20dp"
             android:paddingTop="16dp"
-            android:paddingBottom="12dp"
-            android:background="@color/card_dark">
+            android:paddingEnd="20dp"
+            android:paddingBottom="12dp">
 
             <ImageView
                 android:layout_width="38dp"
                 android:layout_height="38dp"
-                android:src="@drawable/ic_smartspend_logo"
-                android:contentDescription="SmartSpend Logo"
+                android:layout_marginEnd="12dp"
                 android:background="@drawable/bg_gradient_button"
+                android:contentDescription="SmartSpend Logo"
                 android:padding="8dp"
-                android:layout_marginEnd="12dp" />
+                android:src="@drawable/ic_smartspend_logo" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -237,8 +237,8 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:orientation="horizontal"
-            android:background="@color/dark_background">
+            android:background="@color/dark_background"
+            android:orientation="horizontal">
 
             <Button
                 android:id="@+id/tabAnalytics"
@@ -246,12 +246,12 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:background="@android:color/transparent"
+                android:stateListAnimator="@null"
                 android:text="📊 Insights"
+                android:textAllCaps="false"
                 android:textColor="@color/indigo_light"
                 android:textSize="12sp"
-                android:textStyle="bold"
-                android:textAllCaps="false"
-                android:stateListAnimator="@null" />
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/tabFeed"
@@ -259,12 +259,12 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:background="@android:color/transparent"
+                android:stateListAnimator="@null"
                 android:text="💸 Feed"
+                android:textAllCaps="false"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp"
-                android:textStyle="bold"
-                android:textAllCaps="false"
-                android:stateListAnimator="@null" />
+                android:textStyle="bold" />
 
             <Button
                 android:id="@+id/tabSyncHub"
@@ -272,12 +272,12 @@
                 android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:background="@android:color/transparent"
+                android:stateListAnimator="@null"
                 android:text="⚡ Sync Hub"
+                android:textAllCaps="false"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp"
-                android:textStyle="bold"
-                android:textAllCaps="false"
-                android:stateListAnimator="@null" />
+                android:textStyle="bold" />
         </LinearLayout>
 
         <!-- TAB 1: ANALYTICS & INSIGHTS VIEW -->
@@ -299,29 +299,29 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
+                    android:layout_marginBottom="16dp"
                     android:background="@drawable/bg_card_dark"
-                    android:padding="20dp"
-                    android:layout_marginBottom="16dp">
+                    android:orientation="vertical"
+                    android:padding="20dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:letterSpacing="0.08"
                         android:text="TOTAL MONTHLY SPENDING (AUG 2026)"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.08" />
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvTotalMonthlySpend"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
                         android:text="₹0.00"
                         android:textColor="@color/text_primary"
                         android:textSize="32sp"
-                        android:textStyle="bold"
-                        android:layout_marginTop="6dp" />
+                        android:textStyle="bold" />
                 </LinearLayout>
 
                 <!-- AI Insights / MoM Change Alert Card -->
@@ -329,41 +329,41 @@
                     android:id="@+id/cardInsightsAlert"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
+                    android:layout_marginBottom="16dp"
                     android:background="@drawable/bg_card_dark"
-                    android:padding="16dp"
-                    android:layout_marginBottom="16dp">
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:letterSpacing="0.08"
                         android:text="🤖 SMART SPENDING INSIGHTS"
                         android:textColor="@color/indigo_light"
                         android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.08"
-                        android:layout_marginBottom="6dp" />
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvInsightsText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:lineSpacingExtra="2dp"
                         android:text="Analyzing your historical category trends..."
                         android:textColor="@color/text_secondary"
-                        android:textSize="12sp"
-                        android:lineSpacingExtra="2dp" />
+                        android:textSize="12sp" />
                 </LinearLayout>
 
                 <!-- Category Breakdown Title -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp"
+                    android:letterSpacing="0.08"
                     android:text="CATEGORY BREAKDOWN"
                     android:textColor="@color/text_secondary"
                     android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.08"
-                    android:layout_marginBottom="10dp" />
+                    android:textStyle="bold" />
 
                 <!-- Category RecyclerView -->
                 <androidx.recyclerview.widget.RecyclerView
@@ -388,19 +388,19 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:layout_marginBottom="12dp"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="12dp">
+                android:orientation="horizontal">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:letterSpacing="0.08"
                     android:text="RECENT SYNCED TRANSACTIONS"
                     android:textColor="@color/text_secondary"
                     android:textSize="11sp"
-                    android:textStyle="bold"
-                    android:letterSpacing="0.08" />
+                    android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/tvFeedCount"
@@ -437,17 +437,17 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
+                    android:layout_marginBottom="16dp"
                     android:background="@drawable/bg_card_dark"
-                    android:padding="18dp"
-                    android:layout_marginBottom="16dp">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="18dp">
 
                     <View
                         android:layout_width="12dp"
                         android:layout_height="12dp"
-                        android:background="@color/emerald_success"
-                        android:layout_marginEnd="14dp" />
+                        android:layout_marginEnd="14dp"
+                        android:background="@color/emerald_success" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -458,21 +458,21 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:letterSpacing="0.08"
                             android:text="CONNECTION STATUS"
                             android:textColor="@color/text_secondary"
                             android:textSize="11sp"
-                            android:textStyle="bold"
-                            android:letterSpacing="0.08" />
+                            android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/tvSyncHubStatus"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
                             android:text="Connected to Local Backend (192.168.29.227:8000)"
                             android:textColor="@color/text_primary"
                             android:textSize="14sp"
-                            android:textStyle="bold"
-                            android:layout_marginTop="2dp" />
+                            android:textStyle="bold" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -480,28 +480,28 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
+                    android:layout_marginBottom="20dp"
                     android:background="@drawable/bg_card_dark"
-                    android:padding="18dp"
-                    android:layout_marginBottom="20dp">
+                    android:orientation="vertical"
+                    android:padding="18dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:letterSpacing="0.05"
                         android:text="LAST SMS INGESTED"
                         android:textColor="@color/text_secondary"
                         android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="0.05" />
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvLastSms"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
                         android:text="@string/label_no_sms"
                         android:textColor="@color/text_tertiary"
-                        android:textSize="12sp"
-                        android:layout_marginTop="6dp" />
+                        android:textSize="12sp" />
                 </LinearLayout>
 
                 <!-- Trigger Test SMS Button -->
@@ -509,14 +509,14 @@
                     android:id="@+id/btnTestSms"
                     android:layout_width="match_parent"
                     android:layout_height="54dp"
+                    android:layout_marginBottom="16dp"
                     android:background="@drawable/bg_gradient_button"
+                    android:stateListAnimator="@null"
                     android:text="⚡ Trigger Test Bank SMS Sync"
+                    android:textAllCaps="false"
                     android:textColor="@color/white"
                     android:textSize="15sp"
-                    android:textStyle="bold"
-                    android:textAllCaps="false"
-                    android:stateListAnimator="@null"
-                    android:layout_marginBottom="16dp" />
+                    android:textStyle="bold" />
 
                 <!-- Logout Button -->
                 <Button
@@ -524,12 +524,12 @@
                     android:layout_width="match_parent"
                     android:layout_height="48dp"
                     android:background="@android:color/transparent"
+                    android:stateListAnimator="@null"
                     android:text="Sign Out of Device"
+                    android:textAllCaps="false"
                     android:textColor="@color/rose_error"
                     android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:textAllCaps="false"
-                    android:stateListAnimator="@null" />
+                    android:textStyle="bold" />
 
             </LinearLayout>
         </ScrollView>

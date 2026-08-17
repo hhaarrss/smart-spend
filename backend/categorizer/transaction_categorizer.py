@@ -332,9 +332,42 @@ def fallback_category(merchant_raw: Optional[str]) -> Dict[str, Any]:
 # 4. MAIN CATEGORIZER FUNCTION
 # ─────────────────────────────────────────────
 
+CANONICAL_CATEGORY_MAP = {
+    "food": "Food & Dining",
+    "food & dining": "Food & Dining",
+    "food and dining": "Food & Dining",
+    "dining": "Food & Dining",
+    "travel": "Transportation",
+    "transportation": "Transportation",
+    "cab": "Transportation",
+    "fuel": "Fuel",
+    "bills": "Utilities & Bills",
+    "utilities": "Utilities & Bills",
+    "utilities & bills": "Utilities & Bills",
+    "groceries": "Groceries",
+    "shopping": "Shopping",
+    "healthcare": "Healthcare",
+    "entertainment": "Entertainment",
+    "education": "Education",
+    "subscriptions": "Subscriptions",
+    "telecom & recharge": "Telecom & Recharge",
+    "recharge": "Telecom & Recharge",
+    "finance": "Finance & Insurance",
+    "finance & insurance": "Finance & Insurance",
+    "personal care": "Personal Care",
+}
+
+
+def normalize_category_name(cat: Optional[str]) -> str:
+    if not cat:
+        return "Other"
+    key = cat.strip().lower()
+    return CANONICAL_CATEGORY_MAP.get(key, cat.strip())
+
+
 def categorize_transaction(parsed: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
-    Categorize a parsed transaction.
+    Takes parsed SMS dict and runs through the priority cascade.
     """
     if not parsed:
         return None
@@ -357,6 +390,9 @@ def categorize_transaction(parsed: Optional[Dict[str, Any]]) -> Optional[Dict[st
     # Priority 4: Fallback
     if not category_result:
         category_result = fallback_category(merchant_raw)
+
+    if category_result and "category" in category_result:
+        category_result["category"] = normalize_category_name(category_result["category"])
 
     enriched = {**parsed, **category_result}
     enriched["categorized_at"] = datetime.utcnow().isoformat() + "Z"

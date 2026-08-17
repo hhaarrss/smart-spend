@@ -43,7 +43,11 @@ const Insights = () => {
     );
   }
 
-  const { spending_changes = [], anomalies = [], recurring = [], budget_alerts = [] } = insights || {};
+  const rawAlerts = insights?.budget_alerts || [];
+  const budget_alerts = Array.from(
+    new Map(rawAlerts.map(item => [item.category.toLowerCase(), item])).values()
+  );
+  const { spending_changes = [], anomalies = [], recurring = [] } = insights || {};
 
   return (
     <div className="space-y-8 font-sans">
@@ -170,7 +174,7 @@ const Insights = () => {
               ) : (
                 <div className="text-center py-10 text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl bg-slate-50">
                   <BookmarkCheck className="w-7 h-7 text-[#16803C] mx-auto mb-2 opacity-80" />
-                  <span>No large transaction anomalies detected in this billing cycle. Safe spendings!</span>
+                  <span>No unusually large single transactions this month</span>
                 </div>
               )}
             </div>
@@ -211,8 +215,8 @@ const Insights = () => {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-10 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50">
-                  No recurring subscriptions or EMIs identified in transaction records.
+                <div className="text-center py-10 text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl bg-slate-50 px-4">
+                  No recurring charges detected yet. Subscription detection requires at least 2 matching payments to the same merchant spaced weekly, monthly, or annually.
                 </div>
               )}
             </div>

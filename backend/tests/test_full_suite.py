@@ -12,6 +12,36 @@ from categorizer.transaction_categorizer import categorize_transaction
 from utils.auth import hash_password, verify_password, create_access_token
 from schemas.transaction import TransactionCreate, SMSRequest, CorrectionRequest
 from schemas.budget import BudgetLimitCreate
+from utils.fingerprint import generate_fingerprint
+
+
+class TestFingerprint(unittest.TestCase):
+    """
+    Test suite for unified SHA-256 fingerprint generation logic.
+    """
+
+    def test_fingerprint_formula_and_stability(self):
+        """Test SHA-256 fingerprint creation and stability across recategorization."""
+        dt = datetime(2026, 8, 17, 14, 30, 0)
+        fp1 = generate_fingerprint(user_id=1, amount=450.00, date_val=dt, account_last4="1234")
+        fp2 = generate_fingerprint(user_id=1, amount=450.0, date_val=dt, account_last4="1234")
+        
+        # Verify deterministic hash
+        self.assertEqual(fp1, fp2)
+        self.assertEqual(len(fp1), 64)
+
+        # Recategorizing a transaction (changing category) must NOT change fingerprint
+        # as category is not part of user_id:amount:.2f:date:account_last4 formula
+        fp_food = generate_fingerprint(user_id=1, amount=450.00, date_val=dt, account_last4="1234")
+        fp_recategorized = generate_fingerprint(user_id=1, amount=450.00, date_val=dt, account_last4="1234")
+        self.assertEqual(fp_food, fp_recategorized)
+
+    def test_fingerprint_fallback_unknown(self):
+        """Test account_last4 fallback to 'unknown'."""
+        dt = datetime(2026, 8, 17, 0, 0, 0)
+        fp_none = generate_fingerprint(user_id=2, amount=100.5, date_val=dt, account_last4=None)
+        fp_empty = generate_fingerprint(user_id=2, amount=100.5, date_val=dt, account_last4="")
+        self.assertEqual(fp_none, fp_empty)
 
 
 class TestSMSParserAndCategorizer(unittest.TestCase):

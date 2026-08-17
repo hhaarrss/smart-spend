@@ -171,4 +171,14 @@ export const insightService = {
   },
 };
 
+export const categoryService = {
+  /**
+   * Fetches the single canonical list of expense categories.
+   */
+  getCategories: async () => {
+    const response = await api.get('/categories');
+    return response.data;
+  },
+};
+
 export default api;

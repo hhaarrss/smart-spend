@@ -127,7 +127,7 @@ interface BackendService {
     ): Response<InsightsSummaryData>
 
     companion object {
-        private const val BASE_URL = "http://192.168.29.227:8000/"
+        private const val BASE_URL = "https://expense-tracker-pk4d.onrender.com/"
 
         /**
          * Creates a configured Retrofit BackendService instance.

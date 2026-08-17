@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { budgetService, transactionService } from '../services/api';
+import { budgetService, transactionService, categoryService } from '../services/api';
 import { 
   Wallet, PlusCircle, AlertCircle, CheckCircle2, 
   Loader2, Info, X, ShieldCheck
@@ -14,19 +14,19 @@ const Budget = () => {
   const [categoryTotals, setCategoryTotals] = useState({});
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [categories, setCategories] = useState([
+    'Food & Dining', 'Groceries', 'Shopping', 'Transportation', 'Telecom & Recharge',
+    'Utilities & Bills', 'Fuel', 'Healthcare', 'Entertainment', 'Subscriptions',
+    'Education', 'Travel & Hotels', 'Finance & Insurance', 'Personal Care', 'Other'
+  ]);
 
   // Modal State for creating a new custom category budget
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newCat, setNewCat] = useState('Food');
+  const [newCat, setNewCat] = useState('Food & Dining');
   const [newLimit, setNewLimit] = useState('');
   const [newAlertAt, setNewAlertAt] = useState(80);
   const [newIsFamily, setNewIsFamily] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
-
-  const CATEGORIES = [
-    'Food', 'Travel', 'Shopping', 'Utilities', 'Entertainment',
-    'Healthcare', 'Education', 'Fuel', 'Groceries', 'Other'
-  ];
 
   useEffect(() => {
     loadBudgetData();
@@ -41,10 +41,15 @@ const Budget = () => {
       const firstDay = new Date(yyyy, now.getMonth(), 1).toISOString();
       const lastDay = new Date(yyyy, now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
 
-      const [budgetLimits, txs] = await Promise.all([
+      const [budgetLimits, txs, fetchedCategories] = await Promise.all([
         budgetService.getBudgets(),
-        transactionService.listTransactions({ start_date: firstDay, end_date: lastDay })
+        transactionService.listTransactions({ start_date: firstDay, end_date: lastDay }),
+        categoryService.getCategories().catch(() => null)
       ]);
+
+      if (fetchedCategories && Array.isArray(fetchedCategories)) {
+        setCategories(fetchedCategories);
+      }
 
       setBudgets(budgetLimits);
 
@@ -152,7 +157,7 @@ const Budget = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {CATEGORIES.map(cat => {
+          {Array.from(new Set([...categories, ...budgets.map(b => b.category), ...Object.keys(categoryTotals)])).map(cat => {
             const activeBudget = activeBudgetsMap[cat];
             const spent = categoryTotals[cat] || 0;
 
@@ -193,7 +198,7 @@ const Budget = () => {
                   onChange={(e) => setNewCat(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs font-semibold focus:outline-none focus:border-[#16803C]"
                 >
-                  {CATEGORIES.map(c => (
+                  {categories.map(c => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>

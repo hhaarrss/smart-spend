@@ -6,5 +6,29 @@
     "subcategory": "Local Store",
     "count": 1,
     "last_updated": "2026-07-09T06:08:03.487199Z"
+  },
+  "VI VODAFONE IDEA": {
+    "merchant_raw": "Vi (Vodafone Idea)",
+    "merchant_display": "Vi (Vodafone Idea)",
+    "category": "Food & Dining",
+    "subcategory": null,
+    "count": 11,
+    "last_updated": "2026-08-16T15:30:36.284374Z"
+  },
+  "ZOMATO": {
+    "merchant_raw": "Zomato",
+    "merchant_display": "Zomato",
+    "category": "Food & Dining",
+    "subcategory": null,
+    "count": 2,
+    "last_updated": "2026-08-17T07:21:26.174354Z"
+  },
+  "B SHIVARAM": {
+    "merchant_raw": "B SHIVARAM",
+    "merchant_display": "B SHIVARAM",
+    "category": "Food & Dining",
+    "subcategory": null,
+    "count": 2,
+    "last_updated": "2026-08-16T15:30:42.481505Z"
   }
 }

@@ -1,34 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownLeft, Calendar, Landmark, AlertOctagon, Edit3, Check, HelpCircle, ShieldCheck } from 'lucide-react';
 import CategoryBadge from './CategoryBadge';
+import { categoryService } from '../services/api';
 
-const CATEGORIES = [
-  'Food & Dining',
-  'Groceries',
-  'Shopping',
-  'Transportation',
-  'Fuel',
-  'Healthcare',
-  'Entertainment',
-  'Utilities & Bills',
-  'Education',
-  'Travel & Hotels',
-  'Finance & Insurance',
-  'Other'
+const DEFAULT_CATEGORIES = [
+  'Food & Dining', 'Groceries', 'Shopping', 'Transportation', 'Telecom & Recharge',
+  'Utilities & Bills', 'Fuel', 'Healthcare', 'Entertainment', 'Subscriptions',
+  'Education', 'Travel & Hotels', 'Finance & Insurance', 'Personal Care', 'Other'
 ];
 
 /**
  * TransactionCard UI component matching light fintech aesthetic.
  * Supports inline re-categorization, confidence badges, and Needs Review flags.
- * 
- * @param {Object} tx - The transaction payload.
- * @param {Object|boolean} anomaly - Optional anomaly metadata.
- * @param {Function} onRecategorize - Callback when user corrects a category.
  */
 const TransactionCard = ({ tx, anomaly, onRecategorize }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(tx.category || 'Other');
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+
+  useEffect(() => {
+    categoryService.getCategories()
+      .then(cats => { if (Array.isArray(cats)) setCategories(cats); })
+      .catch(() => {});
+  }, []);
+  
+  // Default to tx.category if valid, or 'Food & Dining' if 'Needs Review' or invalid
+  const getInitialCategory = (cat) => {
+    if (!cat || cat === 'Needs Review') return 'Food & Dining';
+    return cat;
+  };
+
+  const [selectedCategory, setSelectedCategory] = useState(getInitialCategory(tx.category));
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setSelectedCategory(getInitialCategory(tx.category));
+  }, [tx.category]);
 
   const isCredit = tx.type === 'credit';
   const amount = parseFloat(tx.amount) || 0;
@@ -47,12 +53,21 @@ const TransactionCard = ({ tx, anomaly, onRecategorize }) => {
     }
   };
 
-  const handleSave = async () => {
-    if (!selectedCategory || selectedCategory === 'Needs Review') return;
+  const handleSave = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    // Ensure we always send a valid category, defaulting if necessary
+    const categoryToSend = (!selectedCategory || selectedCategory === 'Needs Review')
+      ? 'Food & Dining'
+      : selectedCategory;
+
     try {
       setSaving(true);
       if (onRecategorize) {
-        await onRecategorize(tx.id, selectedCategory, tx.merchant);
+        await onRecategorize(tx.id, categoryToSend, tx.merchant);
       }
       setIsEditing(false);
     } catch (err) {
@@ -94,7 +109,10 @@ const TransactionCard = ({ tx, anomaly, onRecategorize }) => {
             
             {/* Needs Review Badge */}
             {isNeedsReview && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+              <span 
+                title="Low confidence category match. Please select the correct category to train the AI matching engine."
+                className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300 cursor-help"
+              >
                 <HelpCircle className="w-3 h-3" />
                 <span>Needs Review</span>
               </span>
@@ -102,7 +120,9 @@ const TransactionCard = ({ tx, anomaly, onRecategorize }) => {
 
             {/* Confidence Pill */}
             {tx.confidence && tx.confidence !== 'none' && (
-              <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border capitalize ${
+              <span 
+                title={`AI Categorization Accuracy Confidence: ${tx.confidence.toUpperCase()}`}
+                className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border capitalize cursor-help ${
                 tx.confidence === 'high'
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   : tx.confidence === 'medium'
@@ -116,7 +136,10 @@ const TransactionCard = ({ tx, anomaly, onRecategorize }) => {
 
             {/* Anomaly Badge */}
             {anomaly && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-[#EF4444] bg-white px-2 py-0.5 rounded-full border border-rose-300 shadow-xs">
+              <span 
+                title={`Spending Anomaly: Exceeds 2x your historical average for ${tx.category}`}
+                className="inline-flex items-center gap-1 text-[10px] font-extrabold text-[#EF4444] bg-white px-2 py-0.5 rounded-full border border-rose-300 shadow-xs cursor-help"
+              >
                 <AlertOctagon className="w-3 h-3" />
                 <span>Spike ({anomaly.avg ? `+${Math.round(((amount - anomaly.avg) / anomaly.avg) * 100)}%` : 'Anomaly'})</span>
               </span>
@@ -124,33 +147,37 @@ const TransactionCard = ({ tx, anomaly, onRecategorize }) => {
           </div>
           
           <div className="flex flex-wrap items-center gap-2 mt-1.5">
-            {isEditing ? (
+            {isEditing || isNeedsReview ? (
               <div className="flex items-center gap-2">
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   className="text-xs border border-slate-300 rounded-lg px-2.5 py-1 bg-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 >
-                  {CATEGORIES.map((cat) => (
+                  {categories.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
                 
                 <button
+                  type="button"
                   onClick={handleSave}
                   disabled={saving}
-                  className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+                  className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer"
                 >
                   <Check className="w-3 h-3" />
                   <span>{saving ? 'Saving...' : 'Save'}</span>
                 </button>
 
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="text-xs text-slate-500 hover:text-slate-700 px-1.5 py-1"
-                >
-                  Cancel
-                </button>
+                {!isNeedsReview && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsEditing(false); }}
+                    className="text-xs text-slate-500 hover:text-slate-700 px-1.5 py-1 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-1.5">
@@ -158,8 +185,9 @@ const TransactionCard = ({ tx, anomaly, onRecategorize }) => {
                 
                 {onRecategorize && (
                   <button
+                    type="button"
                     onClick={() => setIsEditing(true)}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors"
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
                     title="Change Category"
                   >
                     <Edit3 className="w-3 h-3" />
@@ -177,7 +205,10 @@ const TransactionCard = ({ tx, anomaly, onRecategorize }) => {
             )}
 
             {tx.source && (
-              <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/80 font-mono capitalize">
+              <span 
+                title={`Matching Engine Source: ${tx.source}`}
+                className="inline-flex items-center gap-1 text-[10px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/80 font-mono capitalize cursor-help"
+              >
                 {tx.source}
               </span>
             )}

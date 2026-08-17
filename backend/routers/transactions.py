@@ -8,16 +8,6 @@ import calendar
 import hashlib
 import re
 from datetime import datetime, timezone
-"""
-Router for Transaction management.
-
-Handles transaction creation, filtering, duplicate prevention, and aggregate summaries.
-"""
-
-import calendar
-import hashlib
-import re
-from datetime import datetime, timezone
 from typing import Optional, List, Dict
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import select, and_, func
@@ -38,6 +28,7 @@ from schemas.transaction import (
 from schemas.sms import SMSIngestionRequest, SMSIngestionResponse
 from utils.sms_parser import parse_sms
 from utils.dependencies import get_current_user
+from utils.fingerprint import generate_fingerprint
 from categorizer.transaction_categorizer import (
     categorize_transaction,
     process_upi_sms,
@@ -47,24 +38,6 @@ from categorizer.transaction_categorizer import (
 )
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
-
-
-def generate_fingerprint(user_id: int, amount: float, tx_type: str, category: str, date: datetime) -> str:
-    """
-    Generates a unique SHA-256 fingerprint for a transaction to prevent duplicates.
-
-    Args:
-        user_id (int): The ID of the transaction owner.
-        amount (float): The transaction amount.
-        tx_type (str): Debit or Credit.
-        category (str): The transaction category.
-        date (datetime): The transaction date.
-
-    Returns:
-        str: Unique hexadecimal representation of the SHA-256 hash.
-    """
-    raw_str = f"{user_id}:{amount:.2f}:{tx_type.lower()}:{category.lower()}:{date.isoformat()}"
-    return hashlib.sha256(raw_str.encode("utf-8")).hexdigest()
 
 
 def categorize_parsed_sms(parsed: dict, raw_sms: str) -> dict:
@@ -83,7 +56,7 @@ def categorize_parsed_sms(parsed: dict, raw_sms: str) -> dict:
     source = enriched.get("source") or "fallback"
 
     review_status = "auto_categorized"
-    if source == "fallback" or confidence == "none" or category == "Miscellaneous" or category == "Needs Review":
+    if source == "fallback" or confidence in ("none", "low") or category == "Miscellaneous" or category == "Needs Review":
         category = "Needs Review"
         review_status = "needs_review"
 
@@ -126,75 +99,8 @@ async def create_transaction(
     fingerprint = generate_fingerprint(
         user_id=current_user.id,
         amount=tx_in.amount,
-        tx_type=tx_in.type,
-        category=tx_in.category,
-        date=tx_in.date
-    )
-
-    # Check for duplicate
-    duplicate_query = select(Transaction).where(Transaction.hash_fingerprint == fingerprint)
-    result = await db.execute(duplicate_query)
-    if result.scalars().first():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Transaction already exists (duplicate detected by fingerprint).",
-        )
-
-    # Instantiate model
-    new_tx = Transaction(
-        user_id=current_user.id,
-        amount=tx_in.amount,
-        type=tx_in.type.lower(),
-        category=tx_in.category,
-        merchant=tx_in.merchant,
-        bank=tx_in.bank,
+        date_val=tx_in.date,
         account_last4=tx_in.account_last4,
-        date=tx_in.date,
-        hash_fingerprint=fingerprint,
-        source=tx_in.source.lower(),
-    )
-
-    db.add(new_tx)
-    await db.flush()
-    
-    return new_tx
-
-
-
-
-
-@router.post(
-    "/",
-    response_model=TransactionResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Create a new transaction",
-)
-async def create_transaction(
-    tx_in: TransactionCreate,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-) -> Transaction:
-    """
-    Creates a new transaction for the authenticated user.
-    Auto-generates a unique fingerprint and prevents double-posting.
-
-    Args:
-        tx_in (TransactionCreate): Transaction data.
-        current_user (User): Authenticated user.
-        db (AsyncSession): The database session.
-
-    Raises:
-        HTTPException: 409 Conflict if a duplicate transaction is detected.
-
-    Returns:
-        Transaction: The inserted Transaction database object.
-    """
-    fingerprint = generate_fingerprint(
-        user_id=current_user.id,
-        amount=tx_in.amount,
-        tx_type=tx_in.type,
-        category=tx_in.category,
-        date=tx_in.date
     )
 
     # Check for duplicate
@@ -404,9 +310,13 @@ async def ingest_sms(
     confidence = cat_info.get("confidence") or "medium"
     review_status = cat_info.get("review_status") or "auto_categorized"
 
-    # Generate the duplicate checker fingerprint (using date to day-level precision to match amount+date+account_last4 requirement)
-    raw_str = f"{current_user.id}:{parsed['amount']:.2f}:{parsed['date'].date().isoformat()}:{parsed['account_last4'] or 'unknown'}"
-    fingerprint = hashlib.sha256(raw_str.encode("utf-8")).hexdigest()
+    # Generate the duplicate checker fingerprint
+    fingerprint = generate_fingerprint(
+        user_id=current_user.id,
+        amount=parsed["amount"],
+        date_val=parsed["date"],
+        account_last4=parsed["account_last4"],
+    )
 
     # Check for duplicate
     duplicate_query = select(Transaction).where(Transaction.hash_fingerprint == fingerprint)
@@ -536,8 +446,12 @@ async def parse_and_save_batch(
                 except ValueError:
                     continue
 
-        raw_str = f"{result['amount']:.2f}:{tx_date.date().isoformat()}:{result.get('bank') or 'unknown'}"
-        fingerprint = hashlib.sha256(raw_str.encode("utf-8")).hexdigest()
+        fingerprint = generate_fingerprint(
+            user_id=current_user.id,
+            amount=result["amount"],
+            date_val=tx_date,
+            account_last4=result.get("account_last4"),
+        )
 
         duplicate_query = select(Transaction).where(Transaction.hash_fingerprint == fingerprint)
         dup_res = await db.execute(duplicate_query)
