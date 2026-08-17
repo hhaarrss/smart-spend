@@ -141,12 +141,32 @@ app.include_router(categories_router)
 async def on_startup() -> None:
     print("Initializing Smart Expense Tracker Backend...")
     try:
-        from sqlalchemy import text
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        print("Database connection successfully established.")
+        from database import Base, AsyncSessionLocal
+        from models.user import User
+        from models.transaction import Transaction
+        from models.budget import BudgetLimit
+        from models.merchant_mapping import MerchantMapping
+        from utils.auth import hash_password
+        from sqlalchemy import select
+
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("Database connection successfully established and tables verified.")
+
+        async with AsyncSessionLocal() as db:
+            res = await db.execute(select(User).where(User.email == "your1_email@example.com"))
+            if not res.scalars().first():
+                user = User(
+                    email="your1_email@example.com",
+                    hashed_password=hash_password("YourPassword123!"),
+                    full_name="User One",
+                    is_active=True
+                )
+                db.add(user)
+                await db.commit()
+                print("Default seed user created: your1_email@example.com")
     except Exception as e:
-        print(f"Warning: Database connection could not be established during startup. Error: {e}")
+        print(f"Warning: Database initialization during startup error: {e}")
 
 @app.get("/", tags=["Health"])
 async def root() -> dict:
