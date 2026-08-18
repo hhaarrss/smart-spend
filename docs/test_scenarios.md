@@ -1,7 +1,8 @@
 # Smart Expense Tracker — Test Scenarios
 
-> **Base URL:** `http://localhost:8000`
-> **Swagger UI:** `http://localhost:8000/docs`
+> **Cloud API Base URL:** `https://expense-tracker-pk4d.onrender.com`  
+> **Local API Base URL:** `http://localhost:8000`  
+> **Swagger UI:** `https://expense-tracker-pk4d.onrender.com/docs` or `http://localhost:8000/docs`  
 > **All JSON payloads are copy-paste ready for Swagger UI.**
 
 ---
