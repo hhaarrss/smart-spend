@@ -2,6 +2,12 @@
 
 An AI-augmented personal expense tracker built for the Indian UPI/banking ecosystem — turns passive bank SMS alerts into structured, categorized financial analytics in real time.
 
+[![Backend](https://img.shields.io/badge/backend-FastAPI-009688?logo=fastapi&logoColor=white)](#tech-stack)
+[![Database](https://img.shields.io/badge/database-PostgreSQL-4169E1?logo=postgresql&logoColor=white)](#tech-stack)
+[![Android](https://img.shields.io/badge/android-Kotlin-7F52FF?logo=kotlin&logoColor=white)](#tech-stack)
+[![Frontend](https://img.shields.io/badge/frontend-React%20%2B%20Vite-61DAFB?logo=react&logoColor=black)](#tech-stack)
+[![License](https://img.shields.io/badge/license-MIT-green)](#license)
+
 ---
 
 ## 📌 The Problem
@@ -160,7 +166,6 @@ Open the `android/` directory in Android Studio, sync Gradle, and run on a devic
 
 ## 🗺️ Roadmap
 
-- [ ] **Bank statement PDF import** — bulk-parse historical transactions with the same categorization pipeline
 - [ ] **Unified fingerprint formula** across all ingestion paths (manual, SMS, PDF) to eliminate cross-channel duplicate risk
 - [ ] **Personal (P2P) transfer detection**, separate from merchant purchases, for more accurate spending totals
 - [ ] **Recurring subscription detection** for weekly and annual billing cycles, in addition to monthly
