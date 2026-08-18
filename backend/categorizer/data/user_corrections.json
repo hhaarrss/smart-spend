@@ -30,5 +30,13 @@
     "subcategory": null,
     "count": 2,
     "last_updated": "2026-08-16T15:30:42.481505Z"
+  },
+  "UNKNOWN MERCHANT": {
+    "merchant_raw": "Unknown Merchant",
+    "merchant_display": "Unknown Merchant",
+    "category": "Food & Dining",
+    "subcategory": null,
+    "count": 4,
+    "last_updated": "2026-08-17T17:10:44.832861Z"
   }
 }

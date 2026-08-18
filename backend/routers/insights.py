@@ -55,7 +55,7 @@ async def get_insights_summary(
         spending_changes = []
         for category in active_categories:
             change = await compare_month_spending(current_user.id, category, db)
-            if change != 0.0:
+            if change is not None and change != 0.0:
                 spending_changes.append({
                     "category": category,
                     "change_percent": abs(change),

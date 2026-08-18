@@ -1949,7 +1949,7 @@
             "subcategory": "Personal Care"
         },
         {
-            "name": "Lakmé Salon",
+            "name": "Lakm\u00e9 Salon",
             "aliases": [
                 "LAKME SALON",
                 "LAKME",
@@ -2450,6 +2450,16 @@
             ],
             "category": "Other",
             "subcategory": "Rent"
+        },
+        {
+            "name": "Unknown Merchant",
+            "aliases": [
+                "UNKNOWN MERCHANT"
+            ],
+            "category": "Education",
+            "subcategory": null,
+            "auto_promoted": true,
+            "promoted_at": "2026-08-17T11:15:59.035952Z"
         }
     ]
 }

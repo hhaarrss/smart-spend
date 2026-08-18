@@ -1,18 +1,20 @@
 package com.smartspend.app
 
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
+import com.smartspend.app.databinding.ItemTransactionCardBinding
 import java.util.Locale
 
 /**
- * RecyclerView Adapter for displaying list of synced transactions in the mobile app feed.
+ * RecyclerView Adapter for displaying transaction cards matching the mobile design.
  */
 class TransactionAdapter(
-    private var transactions: List<TransactionData> = emptyList()
+    private var transactions: List<TransactionData> = emptyList(),
+    private val onItemClick: (TransactionData) -> Unit = {}
 ) : RecyclerView.Adapter<TransactionAdapter.TransactionViewHolder>() {
 
     fun updateData(newTransactions: List<TransactionData>) {
@@ -21,8 +23,12 @@ class TransactionAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TransactionViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_transaction, parent, false)
-        return TransactionViewHolder(view)
+        val binding = ItemTransactionCardBinding.inflate(
+            LayoutInflater.from(parent.context),
+            parent,
+            false
+        )
+        return TransactionViewHolder(binding, onItemClick)
     }
 
     override fun onBindViewHolder(holder: TransactionViewHolder, position: Int) {
@@ -31,59 +37,60 @@ class TransactionAdapter(
 
     override fun getItemCount(): Int = transactions.size
 
-    class TransactionViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val tvCategoryIcon: TextView = itemView.findViewById(R.id.tvCategoryIcon)
-        private val tvMerchant: TextView = itemView.findViewById(R.id.tvMerchant)
-        private val tvCategory: TextView = itemView.findViewById(R.id.tvCategory)
-        private val tvDateBank: TextView = itemView.findViewById(R.id.tvDateBank)
-        private val tvAmount: TextView = itemView.findViewById(R.id.tvAmount)
-        private val tvReviewBadge: TextView = itemView.findViewById(R.id.tvReviewBadge)
+    class TransactionViewHolder(
+        private val binding: ItemTransactionCardBinding,
+        private val onItemClick: (TransactionData) -> Unit
+    ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(tx: TransactionData) {
+            binding.root.setOnClickListener { onItemClick(tx) }
             val merchantName = tx.merchant?.takeIf { it.isNotBlank() } ?: tx.category
-            tvMerchant.text = merchantName
-            tvCategory.text = tx.category
+            binding.tvMerchantName.text = merchantName
 
-            // Emoji icon mapping
-            tvCategoryIcon.text = getCategoryEmoji(tx.category)
-
-            // Bank and Date formatting
+            // Subtitle: Food & Dining · HDFC · XX4521
             val bankStr = tx.bank?.uppercase(Locale.ROOT) ?: "BANK"
-            val accountStr = if (!tx.account_last4.isNullOrEmpty()) "XX${tx.account_last4}" else ""
-            val rawDateStr = tx.date.take(10)
-            tvDateBank.text = "$rawDateStr • $bankStr $accountStr".trim()
+            val acctStr = if (!tx.account_last4.isNullOrEmpty()) "XX${tx.account_last4}" else ""
+            binding.tvSubtitle.text = "${tx.category} · $bankStr · $acctStr".trim(' ', '·')
 
-            // Amount formatting
+            // Category Icon
+            binding.tvCategoryIcon.text = getCategoryEmoji(tx.category)
+
+            // Date / Time format
+            val rawDateStr = tx.date.take(16).replace("T", " ")
+            binding.tvDateTime.text = rawDateStr
+
+            // Amount formatting (-₹349.00 vs +₹85,000.00)
             val isCredit = tx.type.equals("credit", ignoreCase = true)
             if (isCredit) {
-                tvAmount.text = "+ ₹%.2f".format(tx.amount)
-                tvAmount.setTextColor(ContextCompat.getColor(itemView.context, R.color.emerald_success))
+                binding.tvAmount.text = "+₹%.2f".format(tx.amount)
+                binding.tvAmount.setTextColor(ContextCompat.getColor(itemView.context, R.color.emerald_success))
             } else {
-                tvAmount.text = "- ₹%.2f".format(tx.amount)
-                tvAmount.setTextColor(ContextCompat.getColor(itemView.context, R.color.rose_error))
+                binding.tvAmount.text = "-₹%.2f".format(tx.amount)
+                binding.tvAmount.setTextColor(Color.parseColor("#F8FAFC"))
             }
 
-            // Review status badge
+            // Confidence / Review status badge
             val status = tx.review_status ?: "auto_categorized"
             if (status.contains("needs_review", ignoreCase = true)) {
-                tvReviewBadge.text = "⚠️ Needs Review"
-                tvReviewBadge.setTextColor(ContextCompat.getColor(itemView.context, R.color.amber_warning))
+                binding.tvConfidenceBadge.text = "Needs Review"
+                binding.tvConfidenceBadge.setTextColor(Color.parseColor("#F59E0B"))
             } else {
-                tvReviewBadge.text = "✅ Auto"
-                tvReviewBadge.setTextColor(ContextCompat.getColor(itemView.context, R.color.emerald_success))
+                binding.tvConfidenceBadge.text = "High"
+                binding.tvConfidenceBadge.setTextColor(ContextCompat.getColor(itemView.context, R.color.emerald_success))
             }
         }
 
         private fun getCategoryEmoji(category: String): String {
             val catLower = category.lowercase(Locale.ROOT)
             return when {
-                catLower.contains("grocer") || catLower.contains("supermarket") -> "🛒"
-                catLower.contains("food") || catLower.contains("dining") || catLower.contains("restaurant") -> "🍔"
-                catLower.contains("shop") || catLower.contains("e-commerce") -> "🛍️"
-                catLower.contains("transport") || catLower.contains("cab") || catLower.contains("fuel") -> "🚗"
-                catLower.contains("util") || catLower.contains("bill") || catLower.contains("recharge") -> "💡"
-                catLower.contains("health") || catLower.contains("pharmacy") || catLower.contains("med") -> "🏥"
-                catLower.contains("entert") || catLower.contains("movie") || catLower.contains("subscr") -> "🎬"
+                catLower.contains("food") || catLower.contains("dining") -> "🍴"
+                catLower.contains("grocer") -> "🛍️"
+                catLower.contains("transport") || catLower.contains("cab") -> "🚗"
+                catLower.contains("fuel") -> "⛽"
+                catLower.contains("entert") || catLower.contains("movie") -> "🎬"
+                catLower.contains("util") || catLower.contains("bill") -> "⚡"
+                catLower.contains("shop") -> "🛍️"
+                catLower.contains("salary") -> "💰"
                 else -> "💳"
             }
         }

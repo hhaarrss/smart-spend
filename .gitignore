@@ -251,3 +251,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Scratch scripts
+backend/scratch/
+scratch/
+.vscode/

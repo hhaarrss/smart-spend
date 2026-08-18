@@ -1,7 +1,7 @@
 """
 SMS parser utility for extracting transaction details from bank SMS alerts.
 
-Supports: HDFC, SBI, ICICI, Axis, Kotak, Yes Bank, PNB.
+Supports: HDFC, SBI, ICICI, Axis, Kotak, Yes Bank, PNB, Paytm, IDFC, Union, BoB, Canara, RBL, Citi, Federal, Amex, and all Indian UPI payment SMS headers/bodies.
 """
 
 import re
@@ -12,12 +12,6 @@ from typing import Optional, Dict, Any
 def clean_amount(amt_str: str) -> float:
     """
     Cleans a currency amount string by removing commas, currency symbols, and spaces.
-
-    Args:
-        amt_str (str): The raw amount string.
-
-    Returns:
-        float: Cleaned floating point representation of the amount.
     """
     match = re.search(r"(\d+(?:,\d+)*(?:\.\d+)?)", amt_str)
     if match:
@@ -29,16 +23,9 @@ def parse_sms_date(date_str: str) -> datetime:
     """
     Parses a date string from an SMS into a datetime object.
     Supports formats: DD-MM-YY, DD-MM-YYYY, DD/MM/YY, DD/MM/YYYY, DD-MMM-YY, DDMMM-YY, etc.
-
-    Args:
-        date_str (str): The raw date string.
-
-    Returns:
-        datetime: Timezone-naive datetime object (defaults to current time if parsing fails).
     """
     date_str = date_str.strip().replace(".", "-").replace("/", "-")
     
-    # Try various common formats
     formats = [
         "%d-%m-%y", "%d-%m-%Y",
         "%d-%b-%y", "%d-%b-%Y",
@@ -46,7 +33,6 @@ def parse_sms_date(date_str: str) -> datetime:
         "%Y-%m-%d", "%d-%B-%Y"
     ]
     
-    # Remove ordinal suffixes if any (e.g. 26th)
     date_str = re.sub(r"(\d+)(st|nd|rd|th)", r"\1", date_str)
     
     for fmt in formats:
@@ -55,7 +41,6 @@ def parse_sms_date(date_str: str) -> datetime:
         except ValueError:
             continue
             
-    # Try month name without separators, e.g. 26May26
     date_str_no_sep = re.sub(r"\s+", "", date_str)
     for fmt in ["%d%b%y", "%d%b%Y"]:
         try:
@@ -63,253 +48,141 @@ def parse_sms_date(date_str: str) -> datetime:
         except ValueError:
             continue
 
-    # Fallback to current datetime
     return datetime.now()
 
 
-def identify_bank(sender: str, body: str) -> Optional[str]:
+def identify_bank(sender: str, body: str) -> str:
     """
-    Identifies which of the 7 supported Indian banks the SMS is from.
-
-    Args:
-        sender (str): The SMS sender ID.
-        body (str): The raw text of the SMS.
-
-    Returns:
-        Optional[str]: The identified bank name, or None if not supported.
+    Identifies the bank or payment provider from sender ID or SMS body.
+    Defaults to "BANK" if no specific institution name matches.
     """
-    sender_upper = sender.upper()
-    body_upper = body.upper()
+    s_upper = sender.upper()
+    b_upper = body.upper()
     
-    if "HDFC" in sender_upper or "HDFC" in body_upper:
+    if "HDFC" in s_upper or "HDFC" in b_upper:
         return "HDFC"
-    elif "SBI" in sender_upper or "SBI" in body_upper:
+    elif "SBI" in s_upper or "SBI" in b_upper:
         return "SBI"
-    elif "ICICI" in sender_upper or "ICICI" in body_upper:
+    elif "ICICI" in s_upper or "ICICI" in b_upper:
         return "ICICI"
-    elif "AXIS" in sender_upper or "AXIS" in body_upper:
+    elif "AXIS" in s_upper or "AXIS" in b_upper:
         return "Axis"
-    elif "KOTAK" in sender_upper or "KOTAK" in body_upper:
+    elif "KOTAK" in s_upper or "KOTAK" in b_upper:
         return "Kotak"
-    elif "YESBK" in sender_upper or "YES BANK" in body_upper or "YESBANK" in sender_upper:
+    elif "YESBK" in s_upper or "YES" in b_upper:
         return "Yes Bank"
-    elif "PNB" in sender_upper or "PNB" in body_upper or "PUNJAB NATIONAL" in body_upper:
+    elif "PNB" in s_upper or "PUNJAB" in b_upper:
         return "PNB"
+    elif "PAYTM" in s_upper or "PYTM" in b_upper:
+        return "Paytm"
+    elif "IDFC" in s_upper or "IDFC" in b_upper:
+        return "IDFC"
+    elif "UNION" in s_upper or "UNION" in b_upper:
+        return "Union Bank"
+    elif "BOB" in s_upper or "BARODA" in b_upper:
+        return "Bank of Baroda"
+    elif "CANARA" in s_upper or "CANARA" in b_upper:
+        return "Canara Bank"
+    elif "RBL" in s_upper or "RBL" in b_upper:
+        return "RBL Bank"
+    elif "CITI" in s_upper or "CITI" in b_upper:
+        return "Citi Bank"
+    elif "FED" in s_upper or "FEDERAL" in b_upper:
+        return "Federal Bank"
+    elif "AMEX" in s_upper or "AMERICAN EXPRESS" in b_upper:
+        return "AmEx"
     
-    return None
+    return "BANK"
 
 
 def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
     """
-    Parses a bank transaction SMS and extracts relevant details.
-
-    Args:
-        raw_sms (str): The raw body content of the SMS.
-        sender (str): The sender identifier of the SMS.
-
-    Returns:
-        Optional[Dict[str, Any]]: A dictionary containing the parsed transaction details:
-            - amount (float)
-            - type (str): 'debit' or 'credit'
-            - account_last4 (str)
-            - merchant (Optional[str])
-            - balance (Optional[float])
-            - date (datetime)
-            - bank (str)
-            Or None if the SMS is not a transaction alert from a supported bank.
+    Parses any Indian bank or UPI transaction SMS and extracts relevant details.
     """
-    bank = identify_bank(sender, raw_sms)
-    if not bank:
-        return None
-
-    # Normalise whitespace
     sms = " ".join(raw_sms.split())
     sms_lower = sms.lower()
 
     # Determine debit vs credit
-    # Standard keywords
-    debit_keywords = ["debited", "spent", "paid", "withdrawn", "payment", "charge", "withdrew", "txn to", "used for", "used at", "transaction of", "used"]
-    credit_keywords = ["credited", "received", "deposited", "added", "refund", "salary"]
+    debit_keywords = [
+        "debited", "spent", "paid", "withdrawn", "payment", "charge",
+        "withdrew", "txn to", "used for", "used at", "transaction of", "used", "sent to", "transfer to"
+    ]
+    credit_keywords = [
+        "credited", "received", "deposited", "added", "refund", "salary", "cashback"
+    ]
 
     is_debit = any(kw in sms_lower for kw in debit_keywords)
     is_credit = any(kw in sms_lower for kw in credit_keywords)
 
     if not is_debit and not is_credit:
-        # Not a transaction alert
         return None
 
     tx_type = "debit" if is_debit else "credit"
+    bank = identify_bank(sender, raw_sms)
 
-    # ── ICICI-specific patterns (early return) ──
-    # Format 1 (Debit): "ICICI Bank Acct XX373 debited for Rs 5.00 on 28-May-26; pratiktodkar817 credited. UPI:..."
-    # Format 2 (Credit): "credited with Rs 160.00 on 28-May-26 from BHAVESH GAUTAM . UPI:...-ICICI Bank."
-    if bank == "ICICI":
-        icici_debit = "debited" in sms_lower
-        icici_credit = "credited with" in sms_lower
-        icici_card = "credit card" in sms_lower or "has been used" in sms_lower
-
-        if icici_debit or icici_credit or icici_card:
-            # Account: extract only digits after XX (e.g. XX373 → 373)
-            acct_match = re.search(r"(?:Acct|a/c|ac|card)\s*(?:no\.?\s*)?X{2,}(\d{2,4})", sms, re.IGNORECASE)
-            acct = acct_match.group(1) if acct_match else "0000"
-
-            # Date: DD-Mon-YY format (e.g. 28-May-26)
-            date_match = re.search(r"on\s+(\d{1,2}-[A-Za-z]{3}-\d{2,4})", sms, re.IGNORECASE)
-            date_str = date_match.group(1) if date_match else None
-            parsed_date = parse_sms_date(date_str) if date_str else datetime.now()
-
-            # Balance (generic extraction)
-            bal = None
-            bal_match = re.search(
-                r"(?:bal|balance|avail\.?\s*bal|avl\.?\s*bal|available\s*bal)[\s:=\-]*(?:rs\.?|inr)?\s*([\d,]+\.?\d*)",
-                sms_lower
-            )
-            if bal_match:
-                try:
-                    bal = clean_amount(bal_match.group(1))
-                except ValueError:
-                    pass
-
-            if icici_debit:
-                # Amount after "debited for Rs"
-                amt_match = re.search(r"debited\s+for\s+Rs\.?\s*([\d,]+\.?\d*)", sms, re.IGNORECASE)
-                # Merchant: word(s) before "credited", after semicolon
-                # "...on 28-May-26; pratiktodkar817 credited."
-                merch_match = re.search(r";\s*(.+?)\s+credited", sms, re.IGNORECASE)
-                merch = merch_match.group(1).strip() if merch_match else "Unknown Merchant"
-
-                if amt_match:
-                    return {
-                        "amount": clean_amount(amt_match.group(1)),
-                        "type": "debit",
-                        "account_last4": acct,
-                        "merchant": merch,
-                        "balance": bal,
-                        "date": parsed_date,
-                        "bank": bank,
-                    }
-
-            if icici_credit:
-                # Amount after "credited with Rs"
-                amt_match = re.search(r"credited\s+with\s+Rs\.?\s*([\d,]+\.?\d*)", sms, re.IGNORECASE)
-                # Merchant: text after "from" up to period, UPI ref, or end
-                merch_match = re.search(r"from\s+(.+?)\s*(?:\.|UPI|$)", sms, re.IGNORECASE)
-                merch = merch_match.group(1).strip() if merch_match else "Unknown Sender"
-
-                if amt_match:
-                    return {
-                        "amount": clean_amount(amt_match.group(1)),
-                        "type": "credit",
-                        "account_last4": acct,
-                        "merchant": merch,
-                        "balance": bal,
-                        "date": parsed_date,
-                        "bank": bank,
-                    }
-
-            if icici_card:
-                amt_match = re.search(r"(?:transaction of|for)\s+Rs\.?\s*([\d,]+\.?\d*)", sms, re.IGNORECASE)
-                merch_match = re.search(r"at\s+(.+?)\s*(?:\.|\s+If not|$)", sms, re.IGNORECASE)
-                merch = merch_match.group(1).strip() if merch_match else "Unknown Merchant"
-
-                if amt_match:
-                    return {
-                        "amount": clean_amount(amt_match.group(1)),
-                        "type": "debit",
-                        "account_last4": acct,
-                        "merchant": merch,
-                        "balance": bal,
-                        "date": parsed_date,
-                        "bank": bank,
-                    }
-
-    # Extract Account Last 4
-    account_match = re.search(
-        r"(?:a/c|ac|account|card|ending)\s*(?:no\.?\s*)?(?:ending\s*)?(?:x{2,})?(\d{2,4})",
-        sms_lower
-    )
-    if not account_match:
-        account_match = re.search(r"x{2,}(\d{2,4})", sms_lower)
-    # Fallback to general 4 digits near A/c / card
-    if not account_match:
-        account_match = re.search(r"\b\d{4}\b", sms_lower)
-    
-    account_last4 = account_match.group(1) if account_match else "0000"
-
-    # Extract Amount
-    # Typical amount: Rs. 150.00, Rs 150, INR 150.00, Rs.150
-    amount_match = re.search(
-        r"(?:rs\.?|inr)\s*([\d,]+\.?\d*)",
-        sms_lower
-    )
-    if not amount_match:
-        # Fallback to any decimal number resembling transaction amount
-        amount_match = re.search(r"\b\d+(?:\.\d{2})?\b", sms_lower)
-
-    if not amount_match:
-        return None
-
-    amount = clean_amount(amount_match.group(1))
-    if amount <= 0.0:
-        return None
-
-    # Extract Balance
-    # Look for "bal" or "balance" followed by a number
-    balance = None
-    balance_match = re.search(
-        r"(?:bal|balance|avail bal|avail\. bal|available bal|available balance|avail\. balance)\s*[:\-=\s]*\s*(?:rs\.?|inr)?\s*([\d,]+\.?\d*)",
-        sms_lower
-    )
-    if balance_match:
-        try:
-            balance = clean_amount(balance_match.group(1))
-        except ValueError:
-            pass
-
-    # Extract Date
-    # Look for patterns like DD-MM-YY, DD/MM/YYYY, etc.
-    # Also handles formats like "26May26" or "26-May-26" or "26-05-2026"
-    date = datetime.now()
-    date_match = re.search(
-        r"(\d{2}[-/]\d{2}[-/]\d{2,4}|\d{2}[-/][a-zA-z]{3}[-/]\d{2,4}|\d{2}\s?[a-zA-Z]{3}\s?\d{2,4})",
-        sms
-    )
-    if date_match:
-        date = parse_sms_date(date_match.group(1))
-
-    # Extract Merchant
-    merchant = None
-    # Merchants typically appear after prepositions: to, at, in, info:
-    # E.g. "... debited to Swiggy ...", "... spent at Flipkart ..."
-    merchant_match = re.search(
-        r"(?:to|at|in|info:|by|towards)\s+(?!(?:a/c|ac|account|card|ending|rs\.?|inr|\d+)\b)([A-Za-z0-9\s\-&'\*\/]{3,30}?)(?:\s+using|\s+on|\s+bal|\s+via|\.|$|\n)",
+    # 1. Amount Extraction
+    amt_match = re.search(
+        r"(?:rs\.?|inr|₹)\s*([\d,]+\.?\d*)|([\d,]+\.?\d*)\s*(?:rs\.?|inr|₹)",
         sms,
         re.IGNORECASE
     )
-    if merchant_match:
-        merchant = merchant_match.group(1).strip()
-        # Clean up common noise words
-        merchant = re.sub(r"\s*(?:a/c|card|using|ending|avail|bal|vpa|upi).*$", "", merchant, flags=re.IGNORECASE).strip()
+    if not amt_match:
+        return None
 
-    if not merchant or merchant.lower() in ["unknown", "unknown merchant"]:
-        # Look for standalone merchant after reference e.g. credited(...). TATA POWER. -SBI
-        sbi_merch_match = re.search(r"\)\.\s*([A-Za-z0-9\s\-&'\*\/]{3,30}?)\.\s*-(?:SBI|ICICI|HDFC|AXIS)", sms, re.IGNORECASE)
-        if sbi_merch_match:
-            merchant = sbi_merch_match.group(1).strip()
-    
-    # Fallback merchant based on credit context if none identified
-    if not merchant:
-        if tx_type == "credit":
-            merchant = "Salary/Deposit"
-        else:
-            merchant = "Unknown Merchant"
+    amount_str = amt_match.group(1) or amt_match.group(2)
+    amount = clean_amount(amount_str)
+    if amount <= 0:
+        return None
+
+    # 2. Account Last 4 Extraction
+    acct_match = re.search(
+        r"(?:a/c|acct|ac|card|account|vpa)\s*(?:no\.?\s*)?(?:x+|\*+)?(\d{3,4})",
+        sms,
+        re.IGNORECASE
+    )
+    account_last4 = acct_match.group(1) if acct_match else "0000"
+
+    # 3. Merchant / Payee Extraction
+    merchant = "Unknown Merchant"
+    merch_patterns = [
+        r"(?:to|at|info:)\s+([A-Za-z0-9\s._&\-]+?)(?:\s+on|\s+ref|\s+upi|\s+val|\.|$)",
+        r"(?:vpa|to)\s+([a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+)",
+        r"(?:from)\s+([A-Za-z0-9\s._&\-]+?)(?:\s+on|\s+ref|\s+upi|\.|$)"
+    ]
+
+    for pat in merch_patterns:
+        match = re.search(pat, sms, re.IGNORECASE)
+        if match:
+            candidate = match.group(1).strip()
+            if candidate and len(candidate) > 2 and candidate.lower() not in ("bank", "account", "upi", "ref"):
+                merchant = candidate
+                break
+
+    # 4. Date Extraction
+    date_match = re.search(
+        r"(\d{1,2}[\/\-\.](?:\d{1,2}|[A-Za-z]{3})[\/\-\.]\d{2,4})",
+        sms
+    )
+    parsed_date = parse_sms_date(date_match.group(1)) if date_match else datetime.now()
+
+    # 5. Balance Extraction
+    bal = None
+    bal_match = re.search(
+        r"(?:bal|balance|avail\.?\s*bal|avl\.?\s*bal)[\s:=\-]*(?:rs\.?|inr)?\s*([\d,]+\.?\d*)",
+        sms_lower
+    )
+    if bal_match:
+        try:
+            bal = clean_amount(bal_match.group(1))
+        except Exception:
+            pass
 
     return {
         "amount": amount,
         "type": tx_type,
         "account_last4": account_last4,
         "merchant": merchant,
-        "balance": balance,
-        "date": date,
+        "balance": bal,
+        "date": parsed_date,
         "bank": bank
     }

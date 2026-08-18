@@ -15,7 +15,7 @@ export const setInMemoryToken = (token) => {
 
 // Create the configured Axios client instance
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL || 'https://expense-tracker-pk4d.onrender.com',
   headers: {
     'Content-Type': 'application/json',
   },

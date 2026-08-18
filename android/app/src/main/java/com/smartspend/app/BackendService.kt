@@ -8,7 +8,9 @@ import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.PATCH
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 /**
@@ -54,6 +56,39 @@ data class SmsIngestionResponse(
     val success: Boolean,
     val transaction: TransactionData?,
     val message: String
+)
+
+/**
+ * Data model for Budget Limit returned from /budget/ endpoint.
+ */
+data class BudgetLimitData(
+    val id: Int,
+    val user_id: Int,
+    val category: String,
+    val monthly_limit: Double,
+    val alert_at_percent: Double?,
+    val is_family_limit: Boolean?
+)
+
+/**
+ * Payload for setting / updating category budget limit.
+ */
+data class BudgetSetPayload(
+    val category: String,
+    val monthly_limit: Double,
+    val alert_at_percent: Double = 80.0,
+    val is_family_limit: Boolean = false
+)
+
+/**
+ * Payload for creating manual transaction.
+ */
+data class TransactionCreatePayload(
+    val amount: Double,
+    val type: String,
+    val category: String,
+    val merchant: String?,
+    val date: String
 )
 
 /**
@@ -117,6 +152,42 @@ interface BackendService {
         @Header("Authorization") token: String,
         @Query("month") month: String
     ): Response<Map<String, Double>>
+
+    /**
+     * Fetch configured budget limits.
+     */
+    @GET("/budget/")
+    suspend fun getBudgets(
+        @Header("Authorization") token: String
+    ): Response<List<BudgetLimitData>>
+
+    /**
+     * Create or update category budget limit.
+     */
+    @POST("/budget/")
+    suspend fun setBudget(
+        @Header("Authorization") token: String,
+        @Body payload: BudgetSetPayload
+    ): Response<BudgetLimitData>
+
+    /**
+     * Manually create a transaction.
+     */
+    @POST("/transactions/")
+    suspend fun createTransaction(
+        @Header("Authorization") token: String,
+        @Body payload: TransactionCreatePayload
+    ): Response<TransactionData>
+
+    /**
+     * Update a transaction (e.g., to change category or review status).
+     */
+    @PATCH("/transactions/items/{id}")
+    suspend fun updateTransaction(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int,
+        @Body updates: Map<String, String>
+    ): Response<TransactionData>
 
     /**
      * Fetch analytical financial insights summary.

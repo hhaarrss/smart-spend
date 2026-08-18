@@ -1,10 +1,14 @@
 package com.smartspend.app
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.provider.Telephony
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -12,13 +16,25 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * BroadcastReceiver that intercepts incoming SMS messages from known bank senders,
+ * BroadcastReceiver that intercepts incoming SMS messages from bank senders or containing transaction keywords,
  * and forwards them to the SmartSpend backend for automatic transaction ingestion.
  *
- * Includes an Offline Queue to retry failed SMS syncs when internet connectivity restores.
+ * Includes an Offline Queue to retry failed SMS syncs when internet connectivity restores,
+ * and posts a native status bar Notification on successful sync.
  */
 class SmsReceiver : BroadcastReceiver() {
-    private val bankSenders = setOf("ICICI", "HDFC", "SBI", "AXIS", "KOTAK", "YES", "PNB", "INDUS", "CANARA")
+
+    private val bankKeywords = listOf(
+        "icici", "hdfc", "sbi", "axis", "kotak", "yes", "pnb", "indus", "canara",
+        "paytm", "pytm", "gpay", "bhim", "cred", "idfc", "union", "bob", "rbl",
+        "citi", "fed", "amex", "slice", "jupiter", "fi", "onecard", "niyo", "upi", "bank"
+    )
+
+    private val transactionKeywords = listOf(
+        "debited", "credited", "transferred", "spent", "paid", "withdrawn",
+        "received", "vpa", "upi", "a/c", "inr", "rs.", "rs "
+    )
+
     private val scope = CoroutineScope(Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -28,28 +44,28 @@ class SmsReceiver : BroadcastReceiver() {
                 val sender = sms.originatingAddress ?: continue
                 val messageBody = sms.messageBody ?: continue
 
-                Log.d("SmsReceiver", "Received SMS from: $sender")
+                Log.d("SmsReceiver", "Received SMS from: $sender | Body: $messageBody")
 
-                if (isBankSender(sender)) {
+                if (isTransactionalSms(sender, messageBody)) {
+                    Log.d("SmsReceiver", "Transactional SMS detected! Forwarding to backend...")
                     sendToBackend(context, sender, messageBody)
                 } else {
-                    Log.d("SmsReceiver", "SMS from $sender ignored (not a recognized bank sender)")
+                    Log.d("SmsReceiver", "SMS ignored (not a bank/transactional SMS)")
                 }
             }
         }
     }
 
-    /**
-     * Checks if the SMS sender matches a known bank sender ID.
-     */
-    private fun isBankSender(sender: String): Boolean {
-        return bankSenders.any { sender.contains(it, ignoreCase = true) }
+    private fun isTransactionalSms(sender: String, body: String): Boolean {
+        val sLower = sender.lowercase()
+        val bLower = body.lowercase()
+
+        val isSenderMatch = bankKeywords.any { sLower.contains(it) }
+        val isBodyMatch = transactionKeywords.any { bLower.contains(it) }
+
+        return isSenderMatch || isBodyMatch
     }
 
-    /**
-     * Forwards the SMS to the backend API for ingestion.
-     * Queues SMS offline if network request fails.
-     */
     private fun sendToBackend(context: Context, sender: String, body: String) {
         val sharedPrefs = context.getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
         val token = sharedPrefs.getString("jwt_token", "") ?: ""
@@ -64,19 +80,20 @@ class SmsReceiver : BroadcastReceiver() {
 
         scope.launch {
             try {
-                // First try to flush any previously queued offline SMS
                 flushOfflineQueue(context, token)
 
                 val response = service.ingestSms("Bearer $token", SmsPayload(body, sender))
                 if (response.isSuccessful) {
                     val respBody = response.body()
                     if (respBody != null && respBody.success) {
-                        Log.d("SmsReceiver", "Successfully ingested SMS")
+                        val tx = respBody.transaction
+                        Log.d("SmsReceiver", "Successfully ingested SMS! Transaction ID: ${tx?.id}")
                         sharedPrefs.edit().apply {
                             putString("last_sms", body)
                             putInt("total_synced", sharedPrefs.getInt("total_synced", 0) + 1)
                             apply()
                         }
+                        showSyncNotification(context, tx?.amount, tx?.merchant, tx?.category)
                     } else {
                         Log.w("SmsReceiver", "Backend rejected SMS: ${respBody?.message ?: "Unknown error"}")
                     }
@@ -96,10 +113,41 @@ class SmsReceiver : BroadcastReceiver() {
         }
     }
 
+    private fun showSyncNotification(context: Context, amount: Double?, merchant: String?, category: String?) {
+        try {
+            val channelId = "smartspend_sms_sync"
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    channelId,
+                    "SMS Auto-Sync Notifications",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notifies when a payment SMS is auto-synced to SmartSpend"
+                }
+                notificationManager.createNotificationChannel(channel)
+            }
+
+            val amtStr = if (amount != null) "₹%.2f".format(amount) else "Payment"
+            val merchStr = merchant ?: "Merchant"
+            val catStr = category ?: "General"
+
+            val notification = NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("💳 Payment Auto-Synced!")
+                .setContentText("Synced $amtStr to $merchStr ($catStr)")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .build()
+
+            notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        } catch (e: Exception) {
+            Log.e("SmsReceiver", "Failed to show notification", e)
+        }
+    }
+
     companion object {
-        /**
-         * Saves a failed SMS sync to offline storage for future auto-retry.
-         */
         fun queueOfflineSms(context: Context, sender: String, body: String) {
             val sharedPrefs = context.getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
             val queueJsonStr = sharedPrefs.getString("offline_sms_queue", "[]") ?: "[]"
@@ -118,9 +166,6 @@ class SmsReceiver : BroadcastReceiver() {
             }
         }
 
-        /**
-         * Flushes all offline queued SMS to backend once internet/server connection is restored.
-         */
         suspend fun flushOfflineQueue(context: Context, token: String) {
             val sharedPrefs = context.getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
             val queueJsonStr = sharedPrefs.getString("offline_sms_queue", "[]") ?: "[]"
@@ -146,7 +191,6 @@ class SmsReceiver : BroadcastReceiver() {
                             val newCount = sharedPrefs.getInt("total_synced", 0) + 1
                             sharedPrefs.edit().putInt("total_synced", newCount).apply()
                         } else if (response.code() == 401) {
-                            // Stop flushing on auth failure
                             break
                         } else {
                             remainingQueue.put(obj)
