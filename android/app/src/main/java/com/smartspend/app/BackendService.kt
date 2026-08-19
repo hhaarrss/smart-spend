@@ -119,7 +119,7 @@ interface BackendService {
      * Authenticate user and obtain a JWT access token.
      */
     @FormUrlEncoded
-    @POST("/auth/login")
+    @POST("auth/login")
     suspend fun login(
         @Field("username") username: String,
         @Field("password") password: String
@@ -128,7 +128,7 @@ interface BackendService {
     /**
      * Send parsed SMS data to the backend for transaction ingestion.
      */
-    @POST("/transactions/ingest-sms")
+    @POST("transactions/ingest-sms")
     suspend fun ingestSms(
         @Header("Authorization") token: String,
         @Body payload: SmsPayload
@@ -137,7 +137,7 @@ interface BackendService {
     /**
      * Fetch user's transactions list.
      */
-    @GET("/transactions/")
+    @GET("transactions/")
     suspend fun getTransactions(
         @Header("Authorization") token: String,
         @Query("limit") limit: Int = 50,
@@ -147,7 +147,7 @@ interface BackendService {
     /**
      * Fetch category totals summary for a given month (YYYY-MM).
      */
-    @GET("/transactions/summary")
+    @GET("transactions/summary")
     suspend fun getCategorySummary(
         @Header("Authorization") token: String,
         @Query("month") month: String
@@ -156,7 +156,7 @@ interface BackendService {
     /**
      * Fetch configured budget limits.
      */
-    @GET("/budget/")
+    @GET("budget/")
     suspend fun getBudgets(
         @Header("Authorization") token: String
     ): Response<List<BudgetLimitData>>
@@ -164,7 +164,7 @@ interface BackendService {
     /**
      * Create or update category budget limit.
      */
-    @POST("/budget/")
+    @POST("budget/")
     suspend fun setBudget(
         @Header("Authorization") token: String,
         @Body payload: BudgetSetPayload
@@ -173,7 +173,7 @@ interface BackendService {
     /**
      * Manually create a transaction.
      */
-    @POST("/transactions/")
+    @POST("transactions/")
     suspend fun createTransaction(
         @Header("Authorization") token: String,
         @Body payload: TransactionCreatePayload
@@ -181,8 +181,9 @@ interface BackendService {
 
     /**
      * Update a transaction (e.g., to change category or review status).
+     * Path matches backend @router.patch("/{transaction_id}")
      */
-    @PATCH("/transactions/items/{id}")
+    @PATCH("transactions/{id}")
     suspend fun updateTransaction(
         @Header("Authorization") token: String,
         @Path("id") id: Int,
@@ -192,7 +193,7 @@ interface BackendService {
     /**
      * Fetch analytical financial insights summary.
      */
-    @GET("/insights/summary")
+    @GET("insights/summary")
     suspend fun getInsightsSummary(
         @Header("Authorization") token: String
     ): Response<InsightsSummaryData>

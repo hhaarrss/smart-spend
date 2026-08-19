@@ -106,6 +106,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupAdapters() {
+        transactionAdapter = TransactionAdapter { tx ->
+            showReviewTransactionDialog(tx)
+        }
         binding.rvTransactions.layoutManager = LinearLayoutManager(this)
         binding.rvTransactions.adapter = transactionAdapter
 

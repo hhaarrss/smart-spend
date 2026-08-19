@@ -10,6 +10,7 @@ import re
 from datetime import datetime, timezone
 from typing import Optional, List, Dict
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from pydantic import BaseModel
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -578,3 +579,76 @@ async def recategorize_transaction(
         "review_status": "reviewed",
         "message": "Category updated and correction saved ✅",
     }
+
+
+class TransactionUpdateSchema(BaseModel):
+    category: Optional[str] = None
+    subcategory: Optional[str] = None
+    review_status: Optional[str] = None
+    merchant: Optional[str] = None
+
+
+@router.patch(
+    "/items/{transaction_id}",
+    response_model=TransactionResponse,
+    summary="Update transaction fields (category, review_status, merchant)",
+)
+@router.patch(
+    "/{transaction_id}",
+    response_model=TransactionResponse,
+    summary="Update transaction fields (category, review_status, merchant)",
+)
+async def update_transaction_fields(
+    transaction_id: int,
+    body: TransactionUpdateSchema,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Transaction:
+    """
+    Updates transaction category, review_status, or merchant fields.
+    Also trains the categorizer engine with user correction feedback.
+    """
+    transaction_query = select(Transaction).where(
+        and_(
+            Transaction.id == transaction_id,
+            Transaction.user_id == current_user.id
+        )
+    )
+    res = await db.execute(transaction_query)
+    transaction = res.scalars().first()
+
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found"
+        )
+
+    if body.category is not None:
+        transaction.category = body.category
+        transaction.review_status = body.review_status or "reviewed"
+        transaction.source = "user_correction"
+        transaction.confidence = "high"
+
+        # Save user learning correction
+        merchant_name = transaction.merchant or "Unknown Merchant"
+        try:
+            save_user_correction(
+                merchant_raw=merchant_name,
+                new_category=body.category,
+                subcategory=body.subcategory,
+                display_name=merchant_name,
+            )
+        except Exception as e:
+            pass
+
+    if body.subcategory is not None:
+        transaction.subcategory = body.subcategory
+    if body.review_status is not None:
+        transaction.review_status = body.review_status
+    if body.merchant is not None:
+        transaction.merchant = body.merchant
+
+    await db.commit()
+    await db.refresh(transaction)
+    return transaction
+
