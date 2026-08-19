@@ -1009,6 +1009,123 @@
                 </LinearLayout>
             </ScrollView>
 
+            <!-- SCREEN 4: INSIGHTS DASHBOARD -->
+            <ScrollView
+                android:id="@+id/screenInsights"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:fillViewport="true"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <!-- Header -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="16dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="💡 AI Insights Dashboard"
+                                android:textColor="@color/white"
+                                android:textSize="20sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="Smart anomaly detection &amp; spending intelligence"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <Button
+                            android:id="@+id/btnRefreshInsights"
+                            style="@style/Widget.AppCompat.Button.Borderless"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:background="@drawable/bg_card_dark"
+                            android:paddingHorizontal="12dp"
+                            android:text="🔄 Refresh"
+                            android:textColor="@color/emerald_success"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <!-- Section 1: Month-over-Month Spending Trends -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="📈 Month-over-Month Spending Trends"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/containerSpendingChanges"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="18dp"
+                        android:background="@drawable/bg_card_dark"
+                        android:orientation="vertical"
+                        android:padding="16dp" />
+
+                    <!-- Section 2: Spike & Anomaly Detection -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="🚨 Spike &amp; Anomaly Notifications"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/containerAnomalies"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="18dp"
+                        android:background="@drawable/bg_card_dark"
+                        android:orientation="vertical"
+                        android:padding="16dp" />
+
+                    <!-- Section 3: Critical Budget Warnings -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="🛡️ Critical Budget Warnings"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/containerBudgetAlerts"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="24dp"
+                        android:background="@drawable/bg_card_dark"
+                        android:orientation="vertical"
+                        android:padding="16dp" />
+
+                </LinearLayout>
+            </ScrollView>
+
         </FrameLayout>
 
         <!-- ==================== BOTTOM NAVIGATION BAR ==================== -->
@@ -1099,6 +1216,33 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:text="Budget"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Nav 4: Insights -->
+            <LinearLayout
+                android:id="@+id/navInsights"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/icNavInsights"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="💡"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:id="@+id/tvNavInsights"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Insights"
                     android:textColor="@color/text_secondary"
                     android:textSize="10sp"
                     android:textStyle="bold" />

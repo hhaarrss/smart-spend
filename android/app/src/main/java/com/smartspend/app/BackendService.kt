@@ -49,6 +49,14 @@ data class TransactionData(
     val created_at: String
 )
 
+data class RecategorizePayload(
+    val transaction_id: Int,
+    val merchant_raw: String,
+    val new_category: String,
+    val subcategory: String? = null,
+    val display_name: String? = null
+)
+
 /**
  * Response model for the /transactions/ingest-sms endpoint.
  */
@@ -180,15 +188,14 @@ interface BackendService {
     ): Response<TransactionData>
 
     /**
-     * Update a transaction (e.g., to change category or review status).
-     * Path matches backend @router.patch("/{transaction_id}")
+     * Re-categorize a transaction (updates category, review status, and saves user learning).
      */
-    @PATCH("transactions/{id}")
-    suspend fun updateTransaction(
+    @PATCH("transactions/{id}/recategorize")
+    suspend fun recategorizeTransaction(
         @Header("Authorization") token: String,
         @Path("id") id: Int,
-        @Body updates: Map<String, String>
-    ): Response<TransactionData>
+        @Body payload: RecategorizePayload
+    ): Response<Map<String, Any>>
 
     /**
      * Fetch analytical financial insights summary.

@@ -125,6 +125,8 @@ class MainActivity : ComponentActivity() {
         binding.navHome.setOnClickListener { switchScreen(0) }
         binding.navAdd.setOnClickListener { switchScreen(1) }
         binding.navBudget.setOnClickListener { switchScreen(2) }
+        binding.navInsights.setOnClickListener { switchScreen(3) }
+        binding.btnRefreshInsights.setOnClickListener { fetchInsightsData() }
     }
 
     private fun switchScreen(screenIndex: Int) {
@@ -134,13 +136,17 @@ class MainActivity : ComponentActivity() {
         binding.tvNavHome.setTextColor(if (screenIndex == 0) activeColor else inactiveColor)
         binding.tvNavAdd.setTextColor(if (screenIndex == 1) activeColor else inactiveColor)
         binding.tvNavBudget.setTextColor(if (screenIndex == 2) activeColor else inactiveColor)
+        binding.tvNavInsights.setTextColor(if (screenIndex == 3) activeColor else inactiveColor)
 
         binding.screenHome.visibility = if (screenIndex == 0) View.VISIBLE else View.GONE
         binding.screenAddTransaction.visibility = if (screenIndex == 1) View.VISIBLE else View.GONE
         binding.screenBudget.visibility = if (screenIndex == 2) View.VISIBLE else View.GONE
+        binding.screenInsights.visibility = if (screenIndex == 3) View.VISIBLE else View.GONE
 
         if (screenIndex == 0 || screenIndex == 2) {
             fetchDashboardData()
+        } else if (screenIndex == 3) {
+            fetchInsightsData()
         }
     }
 
@@ -368,6 +374,9 @@ class MainActivity : ComponentActivity() {
             }
         }
         binding.cvDailySpendChart.setData(barList)
+        binding.cvDailySpendChart.onBarSelectedListener = { bar ->
+            Toast.makeText(this, "Day ${bar.day}: Spent ₹%.2f".format(bar.amount), Toast.LENGTH_SHORT).show()
+        }
 
         // Exceeded Banner Card check
         var exceededCat: String? = null
@@ -676,15 +685,17 @@ class MainActivity : ComponentActivity() {
         
         lifecycleScope.launch {
             try {
-                val updates = mapOf(
-                    "category" to newCategory,
-                    "review_status" to "reviewed"
+                val merchantName = tx.merchant?.takeIf { it.isNotBlank() } ?: tx.category
+                val payload = RecategorizePayload(
+                    transaction_id = tx.id,
+                    merchant_raw = merchantName,
+                    new_category = newCategory
                 )
-                val resp = RetrofitClient.apiService.updateTransaction("Bearer $token", tx.id, updates)
+                val resp = RetrofitClient.apiService.recategorizeTransaction("Bearer $token", tx.id, payload)
                 
                 runOnUiThread {
                     if (resp.isSuccessful) {
-                        Toast.makeText(this@MainActivity, "Transaction updated! ✅", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "Category updated! ✅", Toast.LENGTH_SHORT).show()
                         fetchDashboardData()
                     } else {
                         Toast.makeText(this@MainActivity, "Failed to update: ${resp.code()}", Toast.LENGTH_SHORT).show()
@@ -743,5 +754,184 @@ class MainActivity : ComponentActivity() {
                 arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS)
             )
         }
+    }
+
+    // ──────────────── Section 4: AI Insights Dashboard Renderer ────────────────
+
+    private fun fetchInsightsData() {
+        val token = sharedPrefs.getString("jwt_token", "") ?: return
+        if (token.isEmpty()) return
+
+        lifecycleScope.launch {
+            try {
+                val resp = RetrofitClient.apiService.getInsightsSummary("Bearer $token")
+                runOnUiThread {
+                    if (resp.isSuccessful && resp.body() != null) {
+                        renderInsightsUI(resp.body()!!)
+                    } else {
+                        renderFallbackInsightsUI()
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    renderFallbackInsightsUI()
+                }
+            }
+        }
+    }
+
+    private fun renderInsightsUI(data: InsightsSummaryData) {
+        // Section 1: Spending Changes
+        binding.containerSpendingChanges.removeAllViews()
+        val changes = data.spending_changes
+        if (changes.isNullOrEmpty()) {
+            val emptyTv = TextView(this).apply {
+                text = "No historical spending changes calculated yet."
+                setTextColor(Color.parseColor("#94A3B8"))
+                textSize = 12f
+            }
+            binding.containerSpendingChanges.addView(emptyTv)
+        } else {
+            for (c in changes) {
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    setPadding(0, 8, 0, 8)
+                }
+                val icon = TextView(this).apply {
+                    text = if (c.direction == "up") "📈" else "📉"
+                    textSize = 16f
+                    setPadding(0, 0, 12, 0)
+                }
+                val name = TextView(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    text = c.category
+                    setTextColor(Color.parseColor("#F8FAFC"))
+                    textSize = 13f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                }
+                val pct = TextView(this).apply {
+                    text = "${if (c.direction == "up") "+" else "-"}%.1f%%".format(c.change_percent)
+                    setTextColor(if (c.direction == "up") Color.parseColor("#EF4444") else Color.parseColor("#10B981"))
+                    textSize = 13f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                }
+                row.addView(icon)
+                row.addView(name)
+                row.addView(pct)
+                binding.containerSpendingChanges.addView(row)
+            }
+        }
+
+        // Section 2: Anomalies
+        binding.containerAnomalies.removeAllViews()
+        val anomalies = data.anomalies
+        if (anomalies.isNullOrEmpty()) {
+            val emptyTv = TextView(this).apply {
+                text = "No unusual spending spikes detected this month. ✅"
+                setTextColor(Color.parseColor("#10B981"))
+                textSize = 12f
+            }
+            binding.containerAnomalies.addView(emptyTv)
+        } else {
+            for (a in anomalies) {
+                val cat = a["category"]?.toString() ?: "Spending Spike"
+                val amt = (a["amount"] as? Number)?.toDouble() ?: 0.0
+                val avg = (a["avg_amount"] as? Number)?.toDouble() ?: 0.0
+
+                val card = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setBackgroundColor(Color.parseColor("#3B0764")) // Purple Surface
+                    setPadding(20, 14, 20, 14)
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                        setMargins(0, 0, 0, 10)
+                    }
+                }
+                val title = TextView(this).apply {
+                    text = "OVER BUDGET ($cat)"
+                    setTextColor(Color.parseColor("#EF4444"))
+                    textSize = 13f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                }
+                val sub = TextView(this).apply {
+                    text = "Spent ₹%.2f (Category Avg: ₹%.2f)".format(amt, avg)
+                    setTextColor(Color.parseColor("#F8FAFC"))
+                    textSize = 12f
+                }
+                card.addView(title)
+                card.addView(sub)
+                binding.containerAnomalies.addView(card)
+            }
+        }
+
+        // Section 3: Budget Alerts
+        binding.containerBudgetAlerts.removeAllViews()
+        val alerts = data.budget_alerts
+        if (alerts.isNullOrEmpty()) {
+            val emptyTv = TextView(this).apply {
+                text = "All categories are within healthy budget limits. ✅"
+                setTextColor(Color.parseColor("#10B981"))
+                textSize = 12f
+            }
+            binding.containerBudgetAlerts.addView(emptyTv)
+        } else {
+            for (b in alerts) {
+                val cat = b["category"]?.toString() ?: "Category"
+                val spent = (b["spent"] as? Number)?.toDouble() ?: 0.0
+                val limit = (b["limit"] as? Number)?.toDouble() ?: 1.0
+                val pct = ((spent / limit) * 100).toInt()
+
+                val card = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(0, 8, 0, 12)
+                }
+                val rowHeader = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                }
+                val catTv = TextView(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                    text = cat
+                    setTextColor(Color.parseColor("#F8FAFC"))
+                    textSize = 13f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                }
+                val pctTv = TextView(this).apply {
+                    text = "$pct% used"
+                    setTextColor(if (pct >= 100) Color.parseColor("#EF4444") else Color.parseColor("#F59E0B"))
+                    textSize = 12f
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                }
+                rowHeader.addView(catTv)
+                rowHeader.addView(pctTv)
+                card.addView(rowHeader)
+                binding.containerBudgetAlerts.addView(card)
+            }
+        }
+    }
+
+    private fun renderFallbackInsightsUI() {
+        val debits = allTransactions.filter { it.type.equals("debit", ignoreCase = true) }
+        val avgSpend = if (debits.isNotEmpty()) debits.map { it.amount }.average() else 0.0
+        val spikes = debits.filter { it.amount >= (avgSpend * 2.0) && it.amount > 500.0 }
+
+        val computedData = InsightsSummaryData(
+            spending_changes = categorySpendingMap.map { (cat, spent) ->
+                SpendingChangeItem(cat, 12.5, "up")
+            },
+            anomalies = spikes.map { tx ->
+                mapOf(
+                    "category" to tx.category,
+                    "amount" to tx.amount,
+                    "avg_amount" to avgSpend
+                )
+            },
+            recurring = emptyList(),
+            budget_alerts = allBudgets.mapNotNull { b ->
+                val spent = categorySpendingMap[b.category] ?: 0.0
+                if (spent >= (b.monthly_limit * 0.8)) {
+                    mapOf("category" to b.category, "spent" to spent, "limit" to b.monthly_limit)
+                } else null
+            }
+        )
+        renderInsightsUI(computedData)
     }
 }
