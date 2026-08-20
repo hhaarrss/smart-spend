@@ -6,8 +6,9 @@ Handles transaction creation, filtering, duplicate prevention, and aggregate sum
 
 import calendar
 import hashlib
+import math
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from typing import Optional, List, Dict
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
@@ -17,11 +18,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models.transaction import Transaction
 from models.user import User
+from models.budget import BudgetLimit
 from models.merchant_mapping import MerchantMapping
 from schemas.transaction import (
     TransactionCreate,
     TransactionResponse,
     TransactionSummaryResponse,
+    PaginatedTransactionResponse,
+    CategorySummaryItem,
+    MonthlyCategorySummaryResponse,
     SMSRequest,
     BatchSMSRequest,
     CorrectionRequest,
@@ -134,34 +139,169 @@ async def create_transaction(
 
 
 @router.get(
-    "/",
-    response_model=List[TransactionResponse],
-    summary="Retrieve all transactions with optional filters",
+    "/monthly-category-summary",
+    response_model=MonthlyCategorySummaryResponse,
+    summary="Compute detailed monthly category spending summary with MoM change",
 )
-async def list_transactions(
-    category: Optional[str] = Query(None, description="Filter transactions by category"),
-    start_date: Optional[datetime] = Query(None, description="Start date for range filter"),
-    end_date: Optional[datetime] = Query(None, description="End date for range filter"),
-    type: Optional[str] = Query(None, description="Filter by transaction type ('debit' or 'credit')"),
-    review_status: Optional[str] = Query(None, description="Filter by review status ('needs_review', 'reviewed', 'auto_categorized')"),
-    user_id: Optional[int] = Query(None, description="Filter by user ID (admin/family only)"),
-    limit: int = Query(50, description="Max number of transactions to retrieve"),
-    offset: int = Query(0, description="Offset for pagination"),
+async def get_monthly_category_summary(
+    month: int = Query(..., ge=1, le=12, description="Target month (1-12)"),
+    year: int = Query(..., ge=2020, le=2030, description="Target year (e.g. 2026)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-) -> List[Transaction]:
+) -> MonthlyCategorySummaryResponse:
     """
-    Lists and filters transactions belonging to the current user.
-    If a specific user_id is requested, verifies they are in the same family.
+    Computes a detailed spending breakdown by category for a specific month and year.
+    Includes category percentage share, transaction count, top merchant, budget limits,
+    budget utilization percent, and month-over-month change.
 
     Args:
-        category (Optional[str]): Category to filter.
-        start_date (Optional[datetime]): From date.
-        end_date (Optional[datetime]): To date.
-        type (Optional[str]): Filter by transaction type ('debit' or 'credit').
-        user_id (Optional[int]): Query for another user's transactions.
-        limit (int): Pagination limit.
-        offset (int): Pagination offset.
+        month (int): Target month (1-12).
+        year (int): Target year (2020-2030).
+        current_user (User): Authenticated user.
+        db (AsyncSession): Database session.
+
+    Returns:
+        MonthlyCategorySummaryResponse: Structured monthly spending summary.
+    """
+    # 1. Target month range
+    last_day = calendar.monthrange(year, month)[1]
+    start_dt = datetime(year, month, 1, 0, 0, 0, tzinfo=timezone.utc)
+    end_dt = datetime(year, month, last_day, 23, 59, 59, 999999, tzinfo=timezone.utc)
+
+    # 2. Previous month range
+    if month == 1:
+        prev_month = 12
+        prev_year = year - 1
+    else:
+        prev_month = month - 1
+        prev_year = year
+    prev_last_day = calendar.monthrange(prev_year, prev_month)[1]
+    prev_start_dt = datetime(prev_year, prev_month, 1, 0, 0, 0, tzinfo=timezone.utc)
+    prev_end_dt = datetime(prev_year, prev_month, prev_last_day, 23, 59, 59, 999999, tzinfo=timezone.utc)
+
+    # 3. Fetch target month debits for current user
+    debits_query = select(Transaction).where(
+        and_(
+            Transaction.user_id == current_user.id,
+            Transaction.type == "debit",
+            Transaction.date >= start_dt,
+            Transaction.date <= end_dt,
+        )
+    )
+    debits_res = await db.execute(debits_query)
+    debits = list(debits_res.scalars().all())
+
+    total_spent = round(sum(t.amount for t in debits), 2)
+
+    # 4. Fetch previous month total spent
+    prev_query = select(func.coalesce(func.sum(Transaction.amount), 0.0)).where(
+        and_(
+            Transaction.user_id == current_user.id,
+            Transaction.type == "debit",
+            Transaction.date >= prev_start_dt,
+            Transaction.date <= prev_end_dt,
+        )
+    )
+    prev_res = await db.execute(prev_query)
+    previous_month_total = round(float(prev_res.scalar() or 0.0), 2)
+
+    # 5. Compute Month-over-Month change percentage
+    if previous_month_total > 0:
+        mom_change = round(((total_spent - previous_month_total) / previous_month_total) * 100, 1)
+    else:
+        mom_change = 0.0
+
+    # 6. Fetch user's budget limits from database
+    budgets_query = select(BudgetLimit).where(BudgetLimit.user_id == current_user.id)
+    budgets_res = await db.execute(budgets_query)
+    budget_map = {b.category.lower(): float(b.monthly_limit) for b in budgets_res.scalars().all()}
+
+    # 7. Group target debits by category
+    category_groups: Dict[str, List[Transaction]] = {}
+    for t in debits:
+        cat_name = t.category.strip() if t.category else "Other"
+        category_groups.setdefault(cat_name, []).append(t)
+
+    categories_summary = []
+    for cat_name, cat_txs in category_groups.items():
+        cat_total = round(sum(t.amount for t in cat_txs), 2)
+        percentage = round((cat_total / total_spent) * 100, 1) if total_spent > 0 else 0.0
+        tx_count = len(cat_txs)
+
+        # Determine top merchant in this category
+        merchant_totals: Dict[str, float] = {}
+        for t in cat_txs:
+            if t.merchant and t.merchant.strip():
+                m_name = t.merchant.strip()
+                merchant_totals[m_name] = merchant_totals.get(m_name, 0.0) + t.amount
+
+        if merchant_totals:
+            top_merchant = max(merchant_totals.items(), key=lambda x: x[1])[0]
+        else:
+            top_merchant = "N/A"
+
+        b_limit = budget_map.get(cat_name.lower(), 0.0)
+        b_used_pct = round((cat_total / b_limit) * 100, 1) if b_limit > 0 else 0.0
+
+        categories_summary.append(
+            CategorySummaryItem(
+                category=cat_name,
+                total=cat_total,
+                percentage=percentage,
+                transaction_count=tx_count,
+                top_merchant=top_merchant,
+                budget_limit=b_limit,
+                budget_used_percent=b_used_pct,
+            )
+        )
+
+    # Sort categories by total DESC
+    categories_summary.sort(key=lambda x: x.total, reverse=True)
+
+    return MonthlyCategorySummaryResponse(
+        month=month,
+        year=year,
+        total_spent=total_spent,
+        categories=categories_summary,
+        previous_month_total=previous_month_total,
+        month_over_month_change=mom_change,
+    )
+
+
+@router.get(
+    "/",
+    response_model=PaginatedTransactionResponse,
+    summary="Retrieve paginated and filtered transactions sorted latest first",
+)
+async def list_transactions(
+    page: int = Query(1, ge=1, description="Page number (default 1)"),
+    limit: int = Query(10, ge=1, le=50, description="Items per page (default 10, max 50)"),
+    month: Optional[int] = Query(None, ge=1, le=12, description="Filter by month (1-12)"),
+    year: Optional[int] = Query(None, ge=2020, le=2030, description="Filter by year (e.g. 2026)"),
+    start_date: Optional[date] = Query(None, description="Start date filter (YYYY-MM-DD)"),
+    end_date: Optional[date] = Query(None, description="End date filter (YYYY-MM-DD)"),
+    category: Optional[str] = Query(None, description="Filter transactions by category"),
+    type: Optional[str] = Query(None, description="Filter by transaction type ('debit' or 'credit')"),
+    review_status: Optional[str] = Query(None, description="Filter by review status ('needs_review', 'reviewed', 'auto_categorized')"),
+    user_id: Optional[int] = Query(None, description="Filter by user ID (admin/family group access only)"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> PaginatedTransactionResponse:
+    """
+    Lists and filters transactions belonging to the authenticated user.
+    Supports pagination, date range filtering, month/year filtering, and sorting latest first.
+
+    Args:
+        page (int): Current page number (1-indexed).
+        limit (int): Max items per page (1-50).
+        month (Optional[int]): Month filter (1-12).
+        year (Optional[int]): Year filter (2020-2030).
+        start_date (Optional[date]): Start date filter.
+        end_date (Optional[date]): End date filter.
+        category (Optional[str]): Category filter.
+        type (Optional[str]): Filter by type ('debit' or 'credit').
+        review_status (Optional[str]): Review status filter.
+        user_id (Optional[int]): Query for another user's transactions (family group only).
         current_user (User): Authenticated user.
         db (AsyncSession): Database session.
 
@@ -169,19 +309,16 @@ async def list_transactions(
         HTTPException: 403 Forbidden if trying to access data of a user outside their family group.
 
     Returns:
-        List[Transaction]: List of transaction database records.
+        PaginatedTransactionResponse: Paginated transaction payload with metadata.
     """
     query_target_user_id = current_user.id
 
-    # If querying another user, ensure they are family members
     if user_id and user_id != current_user.id:
         if not current_user.family_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You must be part of a family group to query other users' transactions."
             )
-        
-        # Verify the requested user is in the same family
         member_check = select(User).where(and_(User.id == user_id, User.family_id == current_user.family_id))
         res = await db.execute(member_check)
         if not res.scalars().first():
@@ -191,32 +328,58 @@ async def list_transactions(
             )
         query_target_user_id = user_id
 
-    # Build conditional query
     conditions = [Transaction.user_id == query_target_user_id]
+
+    # Date range & Month/Year filters
+    if month is not None and year is not None:
+        last_day = calendar.monthrange(year, month)[1]
+        start_of_month = datetime(year, month, 1, 0, 0, 0, tzinfo=timezone.utc)
+        end_of_month = datetime(year, month, last_day, 23, 59, 59, 999999, tzinfo=timezone.utc)
+        conditions.append(Transaction.date >= start_of_month)
+        conditions.append(Transaction.date <= end_of_month)
+    else:
+        if start_date:
+            start_dt = datetime.combine(start_date, time.min).replace(tzinfo=timezone.utc)
+            conditions.append(Transaction.date >= start_dt)
+        if end_date:
+            end_dt = datetime.combine(end_date, time.max).replace(tzinfo=timezone.utc)
+            conditions.append(Transaction.date <= end_dt)
 
     if category:
         conditions.append(Transaction.category.ilike(category))
-    if start_date:
-        if start_date.tzinfo is None:
-            start_date = start_date.replace(tzinfo=timezone.utc)
-        conditions.append(Transaction.date >= start_date)
-    if end_date:
-        if end_date.tzinfo is None:
-            end_date = end_date.replace(tzinfo=timezone.utc)
-        conditions.append(Transaction.date <= end_date)
     if type:
         conditions.append(Transaction.type == type.lower())
     if review_status:
         conditions.append(Transaction.review_status.ilike(review_status))
 
-    query = select(Transaction).where(and_(*conditions)).order_by(Transaction.date.desc())
-    if offset:
-        query = query.offset(offset)
-    if limit:
-        query = query.limit(limit)
-        
-    result = await db.execute(query)
-    return list(result.scalars().all())
+    # Total matching count query
+    count_query = select(func.count()).select_from(Transaction).where(and_(*conditions))
+    count_res = await db.execute(count_query)
+    total_count = count_res.scalar() or 0
+
+    total_pages = math.ceil(total_count / limit) if total_count > 0 else 0
+    has_more = page < total_pages
+    offset = (page - 1) * limit
+
+    # Items query sorted latest first (ORDER BY date DESC, created_at DESC)
+    items_query = (
+        select(Transaction)
+        .where(and_(*conditions))
+        .order_by(Transaction.date.desc(), Transaction.created_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    items_res = await db.execute(items_query)
+    transactions = list(items_res.scalars().all())
+
+    return PaginatedTransactionResponse(
+        transactions=transactions,
+        total_count=total_count,
+        page=page,
+        limit=limit,
+        has_more=has_more,
+        total_pages=total_pages,
+    )
 
 
 @router.get(

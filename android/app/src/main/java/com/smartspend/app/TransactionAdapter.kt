@@ -5,37 +5,69 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
+import com.smartspend.app.databinding.ItemDateHeaderBinding
 import com.smartspend.app.databinding.ItemTransactionCardBinding
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
+sealed class TxListItem {
+    data class Header(val label: String) : TxListItem()
+    data class Row(val tx: TransactionData) : TxListItem()
+}
+
 /**
- * RecyclerView Adapter for displaying transaction cards matching the mobile design.
+ * RecyclerView adapter with DiffUtil, day headers, and latest-first rows.
  */
 class TransactionAdapter(
-    private var transactions: List<TransactionData> = emptyList(),
     private val onItemClick: (TransactionData) -> Unit = {}
-) : RecyclerView.Adapter<TransactionAdapter.TransactionViewHolder>() {
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
-    fun updateData(newTransactions: List<TransactionData>) {
-        transactions = newTransactions
-        notifyDataSetChanged()
+    private var items: List<TxListItem> = emptyList()
+
+    fun submitList(newItems: List<TxListItem>) {
+        val diff = DiffUtil.calculateDiff(TxDiffCallback(items, newItems))
+        items = newItems
+        diff.dispatchUpdatesTo(this)
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TransactionViewHolder {
-        val binding = ItemTransactionCardBinding.inflate(
-            LayoutInflater.from(parent.context),
-            parent,
-            false
-        )
-        return TransactionViewHolder(binding, onItemClick)
+    override fun getItemViewType(position: Int): Int {
+        return when (items[position]) {
+            is TxListItem.Header -> VIEW_HEADER
+            is TxListItem.Row -> VIEW_ROW
+        }
     }
 
-    override fun onBindViewHolder(holder: TransactionViewHolder, position: Int) {
-        holder.bind(transactions[position])
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        return if (viewType == VIEW_HEADER) {
+            HeaderViewHolder(ItemDateHeaderBinding.inflate(inflater, parent, false))
+        } else {
+            TransactionViewHolder(
+                ItemTransactionCardBinding.inflate(inflater, parent, false),
+                onItemClick
+            )
+        }
     }
 
-    override fun getItemCount(): Int = transactions.size
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (val item = items[position]) {
+            is TxListItem.Header -> (holder as HeaderViewHolder).bind(item.label)
+            is TxListItem.Row -> (holder as TransactionViewHolder).bind(item.tx)
+        }
+    }
+
+    override fun getItemCount(): Int = items.size
+
+    class HeaderViewHolder(
+        private val binding: ItemDateHeaderBinding
+    ) : RecyclerView.ViewHolder(binding.root) {
+        fun bind(label: String) {
+            binding.tvDateHeader.text = label
+        }
+    }
 
     class TransactionViewHolder(
         private val binding: ItemTransactionCardBinding,
@@ -47,52 +79,75 @@ class TransactionAdapter(
             val merchantName = tx.merchant?.takeIf { it.isNotBlank() } ?: tx.category
             binding.tvMerchantName.text = merchantName
 
-            // Subtitle: Food & Dining · HDFC · XX4521
             val bankStr = tx.bank?.uppercase(Locale.ROOT) ?: "BANK"
             val acctStr = if (!tx.account_last4.isNullOrEmpty()) "XX${tx.account_last4}" else ""
             binding.tvSubtitle.text = "${tx.category} · $bankStr · $acctStr".trim(' ', '·')
 
-            // Category Icon
-            binding.tvCategoryIcon.text = getCategoryEmoji(tx.category)
+            binding.tvCategoryIcon.text = categoryEmoji(tx.category)
 
-            // Date / Time format
-            val rawDateStr = tx.date.take(16).replace("T", " ")
-            binding.tvDateTime.text = rawDateStr
+            val justNow = DateUtils.isJustNow(tx)
+            if (justNow) {
+                binding.tvDateTime.text = "JUST NOW"
+                binding.tvDateTime.setTextColor(ContextCompat.getColor(itemView.context, R.color.emerald_success))
+            } else {
+                val millis = DateUtils.parseIsoMillis(tx.date)
+                binding.tvDateTime.text = if (millis > 0) {
+                    SimpleDateFormat("d MMM, h:mm a", Locale.getDefault()).format(Date(millis))
+                } else {
+                    tx.date.take(16).replace("T", " ")
+                }
+                binding.tvDateTime.setTextColor(ContextCompat.getColor(itemView.context, R.color.text_tertiary))
+            }
 
-            // Amount formatting (-₹349.00 vs +₹85,000.00)
             val isCredit = tx.type.equals("credit", ignoreCase = true)
             if (isCredit) {
                 binding.tvAmount.text = "+₹%.2f".format(tx.amount)
                 binding.tvAmount.setTextColor(ContextCompat.getColor(itemView.context, R.color.emerald_success))
             } else {
                 binding.tvAmount.text = "-₹%.2f".format(tx.amount)
-                binding.tvAmount.setTextColor(Color.parseColor("#F8FAFC"))
+                binding.tvAmount.setTextColor(ContextCompat.getColor(itemView.context, R.color.rose_error))
             }
 
-            // Confidence / Review status badge
             val status = tx.review_status ?: "auto_categorized"
             if (status.contains("needs_review", ignoreCase = true)) {
                 binding.tvConfidenceBadge.text = "Needs Review"
                 binding.tvConfidenceBadge.setTextColor(Color.parseColor("#F59E0B"))
+            } else if (justNow) {
+                binding.tvConfidenceBadge.text = "JUST NOW"
+                binding.tvConfidenceBadge.setTextColor(ContextCompat.getColor(itemView.context, R.color.emerald_success))
             } else {
                 binding.tvConfidenceBadge.text = "High"
                 binding.tvConfidenceBadge.setTextColor(ContextCompat.getColor(itemView.context, R.color.emerald_success))
             }
         }
+    }
 
-        private fun getCategoryEmoji(category: String): String {
-            val catLower = category.lowercase(Locale.ROOT)
+    private class TxDiffCallback(
+        private val oldList: List<TxListItem>,
+        private val newList: List<TxListItem>
+    ) : DiffUtil.Callback() {
+        override fun getOldListSize(): Int = oldList.size
+        override fun getNewListSize(): Int = newList.size
+
+        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            val oldItem = oldList[oldItemPosition]
+            val newItem = newList[newItemPosition]
             return when {
-                catLower.contains("food") || catLower.contains("dining") -> "🍴"
-                catLower.contains("grocer") -> "🛍️"
-                catLower.contains("transport") || catLower.contains("cab") -> "🚗"
-                catLower.contains("fuel") -> "⛽"
-                catLower.contains("entert") || catLower.contains("movie") -> "🎬"
-                catLower.contains("util") || catLower.contains("bill") -> "⚡"
-                catLower.contains("shop") -> "🛍️"
-                catLower.contains("salary") -> "💰"
-                else -> "💳"
+                oldItem is TxListItem.Header && newItem is TxListItem.Header ->
+                    oldItem.label == newItem.label
+                oldItem is TxListItem.Row && newItem is TxListItem.Row ->
+                    oldItem.tx.id == newItem.tx.id
+                else -> false
             }
         }
+
+        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+            return oldList[oldItemPosition] == newList[newItemPosition]
+        }
+    }
+
+    companion object {
+        private const val VIEW_HEADER = 0
+        private const val VIEW_ROW = 1
     }
 }

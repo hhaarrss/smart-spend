@@ -90,3 +90,38 @@ class CorrectionRequest(BaseModel):
     new_category: str = Field(..., description="Corrected category name.")
     subcategory: Optional[str] = Field(None, description="Optional corrected subcategory.")
     display_name: Optional[str] = Field(None, description="Optional clean merchant name.")
+
+
+class PaginatedTransactionResponse(BaseModel):
+    """Schema for paginated transaction list responses."""
+
+    transactions: List[TransactionResponse]
+    total_count: int = Field(..., description="Total number of matching transactions.")
+    page: int = Field(..., description="Current page number.")
+    limit: int = Field(..., description="Number of items per page.")
+    has_more: bool = Field(..., description="True if more pages exist.")
+    total_pages: int = Field(..., description="Total number of available pages.")
+
+
+class CategorySummaryItem(BaseModel):
+    """Schema for a single category total item in monthly summary."""
+
+    category: str = Field(..., description="Category name.")
+    total: float = Field(..., description="Total amount spent in this category.")
+    percentage: float = Field(..., description="Percentage of total monthly spend.")
+    transaction_count: int = Field(..., description="Number of transactions in this category.")
+    top_merchant: str = Field(..., description="Merchant with highest spend in this category.")
+    budget_limit: float = Field(..., description="Configured monthly budget limit for this category.")
+    budget_used_percent: float = Field(..., description="Percentage of budget limit utilized.")
+
+
+class MonthlyCategorySummaryResponse(BaseModel):
+    """Schema for monthly category spending summary response."""
+
+    month: int = Field(..., ge=1, le=12, description="Target month (1-12).")
+    year: int = Field(..., ge=2020, le=2030, description="Target year (2020-2030).")
+    total_spent: float = Field(..., description="Total amount spent across all categories in the month.")
+    categories: List[CategorySummaryItem] = Field(..., description="List of category summary items sorted by total DESC.")
+    previous_month_total: float = Field(..., description="Total amount spent in the previous month.")
+    month_over_month_change: float = Field(..., description="Percentage change compared to previous month.")
+

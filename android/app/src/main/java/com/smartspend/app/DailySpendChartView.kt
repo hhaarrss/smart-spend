@@ -12,12 +12,13 @@ import android.view.View
 data class DailyBarData(
     val day: Int,
     val amount: Double,
-    val isSpike: Boolean
+    val isSpike: Boolean,
+    val isToday: Boolean = false
 )
 
 /**
- * Custom Android View for rendering the Daily Spend Bar Chart with anomaly spike highlights
- * and interactive tap selection with floating callout tooltips.
+ * Custom Android View for rendering the Daily Spend Bar Chart with anomaly spike highlights,
+ * today bar accent, and interactive tap selection with floating callout tooltips.
  */
 class DailySpendChartView @JvmOverloads constructor(
     context: Context,
@@ -38,6 +39,12 @@ class DailySpendChartView @JvmOverloads constructor(
         color = Color.parseColor("#94A3B8")
         textSize = 28f
         textAlign = Paint.Align.CENTER
+    }
+    private val todayTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#F59E0B") // Amber Accent
+        textSize = 22f
+        textAlign = Paint.Align.CENTER
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
     }
 
     // Tooltip Paints
@@ -143,7 +150,9 @@ class DailySpendChartView @JvmOverloads constructor(
                 canvas.drawRoundRect(rect, 8f, 8f, selectedBarPaint)
                 canvas.drawRoundRect(rect, 8f, 8f, selectedStrokePaint)
             } else {
-                if (item.isSpike) {
+                if (item.isToday) {
+                    barPaint.color = Color.parseColor("#F59E0B") // Amber Accent for Today
+                } else if (item.isSpike) {
                     barPaint.color = Color.parseColor("#EF4444") // Anomaly Red
                 } else {
                     barPaint.color = Color.parseColor("#16803C") // Emerald Green
@@ -151,9 +160,21 @@ class DailySpendChartView @JvmOverloads constructor(
                 canvas.drawRoundRect(rect, 8f, 8f, barPaint)
             }
 
-            // Draw day label every 3 days, selected day, or spike days
+            // Draw "Today" text label above today's bar
+            if (item.isToday) {
+                val labelY = (top - 8f).coerceAtLeast(paddingTop - 12f)
+                canvas.drawText("Today", left + barWidth / 2f, labelY, todayTextPaint)
+            }
+
+            // Draw day label
             if (i == selectedIndex) {
                 textPaint.color = Color.parseColor("#38BDF8")
+                textPaint.typeface = android.graphics.Typeface.DEFAULT_BOLD
+                canvas.drawText("${item.day}", left + barWidth / 2f, height.toFloat() - 8f, textPaint)
+                textPaint.color = Color.parseColor("#94A3B8")
+                textPaint.typeface = android.graphics.Typeface.DEFAULT
+            } else if (item.isToday) {
+                textPaint.color = Color.parseColor("#F59E0B")
                 textPaint.typeface = android.graphics.Typeface.DEFAULT_BOLD
                 canvas.drawText("${item.day}", left + barWidth / 2f, height.toFloat() - 8f, textPaint)
                 textPaint.color = Color.parseColor("#94A3B8")

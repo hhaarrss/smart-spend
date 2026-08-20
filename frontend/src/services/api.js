@@ -74,13 +74,27 @@ export const transactionService = {
    */
   listTransactions: async (filters = {}) => {
     const params = {};
-    if (filters.category) params.category = filters.category;
+    if (filters.page) params.page = filters.page;
+    if (filters.limit) params.limit = filters.limit;
+    if (filters.month) params.month = filters.month;
+    if (filters.year) params.year = filters.year;
     if (filters.start_date) params.start_date = filters.start_date;
     if (filters.end_date) params.end_date = filters.end_date;
+    if (filters.category) params.category = filters.category;
     if (filters.type) params.type = filters.type;
     if (filters.review_status) params.review_status = filters.review_status;
 
     const response = await api.get('/transactions/', { params });
+    return response.data;
+  },
+
+  /**
+   * Fetches monthly category spending summary with MoM analytics.
+   */
+  getMonthlyCategorySummary: async (month, year) => {
+    const response = await api.get('/transactions/monthly-category-summary', {
+      params: { month, year },
+    });
     return response.data;
   },
 

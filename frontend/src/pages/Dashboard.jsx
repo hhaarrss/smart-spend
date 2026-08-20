@@ -1,106 +1,121 @@
-import { Link } from 'react-router-dom';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { transactionService, budgetService, insightService } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
+  PieChart, Pie, Cell, LabelList
 } from 'recharts';
 import {
-  DollarSign, AlertTriangle, ArrowRightLeft,
-  ShoppingBag, Wallet, ChevronRight, Activity, ChevronDown,
-  Utensils, Zap, ShoppingCart, ArrowRight, BrainCircuit,
-  TrendingUp, ArrowUpRight, ArrowDownRight, Filter, X, HelpCircle, ShieldAlert,
-  Search, Download, Calendar, Layers
+  AlertTriangle, ShoppingBag, Wallet, Activity,
+  TrendingUp, ArrowUpRight, ArrowDownRight, X, HelpCircle,
+  Search, Download, Layers, ChevronDown, Calendar
 } from 'lucide-react';
 import TransactionCard from '../components/TransactionCard';
+import MonthPicker from '../components/MonthPicker';
+import { fetchAllMonthTransactions, sortTransactionsLatestFirst } from '../utils/transactions';
+
+const PAGE_SIZE = 10;
 
 /**
  * Main dashboard page delivering 3-second clarity:
  * - Top stat strip: Outflow (Expenses), Inflow (Income), Net Savings Cash Flow, & Total Logs
  * - Suppressed divide-by-zero MoM percentage artifacts ("N/A First Month Tracked")
- * - Interactive Daily Spending Curve with day bar selection drill-down
- * - Harmonized AI Anomaly Spike indicators (matches Insights page 100%)
- * - Live Search, Category filter, and Sanitized CSV Export
+ * - Interactive Daily Spending Curve with month/year picker
+ * - Category breakdown donut chart synced with month/year selection
+ * - Highlighted "Today" bar in daily spending chart with accent color
+ * - Paginated transactions with Show More and auto-collapse on scroll-up
  */
 const Dashboard = () => {
-  const { user } = useAuth();
+  const now = new Date();
 
   const [transactions, setTransactions] = useState([]);
   const [prevTransactions, setPrevTransactions] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [insights, setInsights] = useState(null);
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Interactive filtering state
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'needs_review' | 'debit' | 'credit'
+  const [activeTab, setActiveTab] = useState('all');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  // Date states
-  const [currentMonthStr, setCurrentMonthStr] = useState('');
-  const [monthName, setMonthName] = useState('');
-  const [prevMonthName, setPrevMonthName] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
 
-  const currentMonthRef = React.useRef('');
-  currentMonthRef.current = currentMonthStr;
+  const selectedMonthRef = useRef(selectedMonth);
+  const selectedYearRef = useRef(selectedYear);
+  selectedMonthRef.current = selectedMonth;
+  selectedYearRef.current = selectedYear;
+
+  const txSentinelRef = useRef(null);
+  const hasLeftTxTop = useRef(false);
+
+  const monthName = new Date(selectedYear, selectedMonth - 1, 1).toLocaleString('default', { month: 'long' });
+  const monthYearLabel = `${monthName} ${selectedYear}`;
+  const prevMonthDate = new Date(selectedYear, selectedMonth - 2, 1);
+  const prevMonthName = prevMonthDate.toLocaleString('default', { month: 'long' });
 
   useEffect(() => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const monthStr = `${yyyy}-${mm}`;
-    setCurrentMonthStr(monthStr);
-    setMonthName(now.toLocaleString('default', { month: 'long' }));
+    loadDashboardData(selectedMonth, selectedYear);
 
-    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    setPrevMonthName(prevMonthDate.toLocaleString('default', { month: 'long' }));
-
-    loadDashboardData(monthStr);
-
-    // Poll for new transactions in background every 10 seconds using current month ref
     const intervalId = setInterval(() => {
-      if (currentMonthRef.current) {
-        loadDashboardData(currentMonthRef.current, false);
-      }
+      loadDashboardData(selectedMonthRef.current, selectedYearRef.current, false);
     }, 10000);
 
     return () => clearInterval(intervalId);
-  }, []);
+  }, [selectedMonth, selectedYear]);
 
-  const loadDashboardData = async (monthStr, showLoading = true) => {
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+    hasLeftTxTop.current = false;
+  }, [selectedMonth, selectedYear, selectedCategory, selectedDay, searchQuery, activeTab]);
+
+  useEffect(() => {
+    const sentinel = txSentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) {
+          hasLeftTxTop.current = true;
+          return;
+        }
+        if (hasLeftTxTop.current && visibleCount > PAGE_SIZE) {
+          setVisibleCount(PAGE_SIZE);
+          hasLeftTxTop.current = false;
+        }
+      },
+      { threshold: 0, rootMargin: '0px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [visibleCount, loading]);
+
+  const loadDashboardData = async (month, year, showLoading = true) => {
     if (showLoading) setLoading(true);
     setError('');
     try {
-      const [year, month] = monthStr.split('-').map(Number);
-      const lastDayOfMonth = new Date(year, month, 0).getDate();
-      const mm = String(month).padStart(2, '0');
-      const firstDay = `${year}-${mm}-01T00:00:00`;
-      const lastDay = `${year}-${mm}-${String(lastDayOfMonth).padStart(2, '0')}T23:59:59`;
-
+      const prevMonth = month === 1 ? 12 : month - 1;
       const prevYear = month === 1 ? year - 1 : year;
-      const prevMonthNum = month === 1 ? 12 : month - 1;
-      const prevLastDay = new Date(prevYear, prevMonthNum, 0).getDate();
-      const prevMM = String(prevMonthNum).padStart(2, '0');
-      const prevFirstDay = `${prevYear}-${prevMM}-01T00:00:00`;
-      const prevLastDayStr = `${prevYear}-${prevMM}-${String(prevLastDay).padStart(2, '0')}T23:59:59`;
 
-      const [txsRaw, prevTxsRaw, budgetLimitsRaw, insightsData] = await Promise.all([
-        transactionService.listTransactions({ start_date: firstDay, end_date: lastDay }),
-        transactionService.listTransactions({ start_date: prevFirstDay, end_date: prevLastDayStr }),
+      const prevTxPromise = prevYear < 2020
+        ? Promise.resolve([])
+        : fetchAllMonthTransactions(transactionService.listTransactions, prevMonth, prevYear).catch(() => []);
+
+      const [txs, prevTxs, budgetLimitsRaw, insightsData] = await Promise.all([
+        fetchAllMonthTransactions(transactionService.listTransactions, month, year),
+        prevTxPromise,
         budgetService.getBudgets(),
-        insightService.getSummary().catch(() => null)
+        insightService.getSummary().catch(() => null),
       ]);
 
-      const txs = Array.isArray(txsRaw) ? txsRaw : (txsRaw?.data || txsRaw?.transactions || []);
-      const prevTxs = Array.isArray(prevTxsRaw) ? prevTxsRaw : (prevTxsRaw?.data || prevTxsRaw?.transactions || []);
       const budgetLimits = Array.isArray(budgetLimitsRaw) ? budgetLimitsRaw : (budgetLimitsRaw?.data || []);
 
-      setTransactions(txs);
-      setPrevTransactions(prevTxs);
+      setTransactions(sortTransactionsLatestFirst(txs));
+      setPrevTransactions(sortTransactionsLatestFirst(prevTxs));
       setBudgets(budgetLimits);
       setInsights(insightsData);
 
@@ -112,39 +127,43 @@ const Dashboard = () => {
     }
   };
 
+  const handleMonthChange = (month, year) => {
+    setSelectedMonth(month);
+    setSelectedYear(year);
+    setSelectedDay(null);
+    setSelectedCategory(null);
+  };
+
   const handleRecategorize = async (transactionId, newCategory, merchantRaw) => {
-    // Optimistic UI update for instant feedback
-    setTransactions(prev => prev.map(t => 
-      t.id === transactionId 
-        ? { ...t, category: newCategory, review_status: 'reviewed', source: 'user_correction', confidence: 'high' } 
+    setTransactions(prev => prev.map(t =>
+      t.id === transactionId
+        ? { ...t, category: newCategory, review_status: 'reviewed', source: 'user_correction', confidence: 'high' }
         : t
     ));
     try {
       await transactionService.recategorizeTransaction(transactionId, newCategory, null, merchantRaw);
-      await loadDashboardData(currentMonthStr, false);
+      await loadDashboardData(selectedMonth, selectedYear, false);
     } catch (err) {
       console.error('[Dashboard] Error recategorizing transaction:', err);
-      await loadDashboardData(currentMonthStr, false);
+      await loadDashboardData(selectedMonth, selectedYear, false);
     }
   };
 
-  // Export CSV with Formula Injection Sanitization
   const exportToCSV = () => {
     if (!transactions || transactions.length === 0) return;
-    
+
     const headers = ['ID', 'Date', 'Type', 'Category', 'Merchant', 'Amount (INR)', 'Bank', 'Account Last 4', 'Source', 'Review Status'];
-    
+
     const sanitize = (val) => {
       if (val === null || val === undefined) return '""';
       const str = String(val).trim();
-      // Formula Injection protection: escape '=', '+', '-', '@', '\t', '\r'
       if (/^[=+\-@\t\r]/.test(str)) {
         return `"'${str.replace(/"/g, '""')}"`;
       }
       return `"${str.replace(/"/g, '""')}"`;
     };
 
-    const csvRows = transactions.map(t => [
+    const csvRows = sortTransactionsLatestFirst(transactions).map(t => [
       t.id,
       sanitize(t.date),
       sanitize(t.type),
@@ -162,17 +181,15 @@ const Dashboard = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `SmartSpend_Export_${currentMonthStr}.csv`);
+    link.setAttribute('download', `SmartSpend_Export_${selectedYear}-${String(selectedMonth).padStart(2, '0')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Needs review calculation
   const needsReviewTx = transactions.filter(t => t.review_status === 'needs_review' || t.category === 'Needs Review');
   const needsReviewCount = needsReviewTx.length;
 
-  // Current month totals: Debits (Outflow) & Credits (Inflow)
   const debits = transactions.filter(t => t.type === 'debit');
   const credits = transactions.filter(t => t.type === 'credit');
 
@@ -181,32 +198,19 @@ const Dashboard = () => {
   const netCashFlow = totalIncome - totalSpent;
   const totalTxCount = transactions.length;
 
-  // Previous month calculations
   const prevDebits = prevTransactions.filter(t => t.type === 'debit');
   const prevTotalSpent = prevDebits.reduce((acc, t) => acc + parseFloat(t.amount), 0);
 
-  // MoM Delta calculation with null check for prev month zero guard
   const rawMomDelta = prevTotalSpent > 0 ? ((totalSpent - prevTotalSpent) / prevTotalSpent) * 100 : null;
   const hasPrevData = rawMomDelta !== null;
   const spentDeltaPercent = hasPrevData ? rawMomDelta.toFixed(1) : null;
   const isSpentIncrease = totalSpent >= prevTotalSpent;
 
-  // Group by category for top category & Donut Chart
   const categoryTotals = {};
   debits.forEach(t => {
     categoryTotals[t.category] = (categoryTotals[t.category] || 0) + parseFloat(t.amount);
   });
 
-  let topCategory = 'None';
-  let topCategoryAmount = 0;
-  Object.entries(categoryTotals).forEach(([cat, amt]) => {
-    if (amt > topCategoryAmount) {
-      topCategoryAmount = amt;
-      topCategory = cat;
-    }
-  });
-
-  // Categorical Colors for Donut Chart
   const FINTECH_COLORS = {
     'food & dining': '#16803C',
     'groceries': '#84CC16',
@@ -225,7 +229,6 @@ const Dashboard = () => {
     color: FINTECH_COLORS[name.trim().toLowerCase()] || FINTECH_COLORS.other
   })).sort((a, b) => b.value - a.value);
 
-  // Harmonized Anomaly lookup map (matches Insights page data)
   const anomalies = insights?.anomalies || [];
   const anomalyMap = {};
   const anomalyDaysSet = new Set();
@@ -236,16 +239,16 @@ const Dashboard = () => {
     }
     if (a.date) {
       try {
-        const d = new Date(a.date).getDate();
-        anomalyDaysSet.add(d);
+        const d = new Date(a.date);
+        if (d.getMonth() + 1 === selectedMonth && d.getFullYear() === selectedYear) {
+          anomalyDaysSet.add(d.getDate());
+        }
       } catch {}
     }
   });
 
-  // Group by day for Recharts Bar Chart
+  const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
   const dailyTotals = {};
-  const now = new Date();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   for (let i = 1; i <= daysInMonth; i++) {
     dailyTotals[String(i).padStart(2, '0')] = 0;
   }
@@ -259,11 +262,15 @@ const Dashboard = () => {
     } catch { }
   });
 
+  const isCurrentMonthYear = selectedMonth === (now.getMonth() + 1) && selectedYear === now.getFullYear();
+  const todayDay = isCurrentMonthYear ? now.getDate() : null;
+
   let peakDay = 0;
   let peakAmount = 0;
 
   const barData = Object.entries(dailyTotals).map(([day, amount]) => {
     const dayNum = parseInt(day);
+    const isToday = isCurrentMonthYear && dayNum === todayDay;
     if (amount > peakAmount) {
       peakAmount = amount;
       peakDay = dayNum;
@@ -271,24 +278,12 @@ const Dashboard = () => {
     return {
       day: dayNum,
       amount: Math.round(amount),
-      isSpike: anomalyDaysSet.has(dayNum)
+      isSpike: anomalyDaysSet.has(dayNum),
+      isToday,
+      todayLabel: isToday ? 'Today' : ''
     };
   }).sort((a, b) => a.day - b.day);
 
-  // Budget status alerts
-  const budgetAlerts = budgets.map(b => {
-    const spent = categoryTotals[b.category] || 0;
-    const pct = (spent / b.monthly_limit) * 100;
-    return {
-      category: b.category,
-      limit: b.monthly_limit,
-      spent,
-      percent: Math.round(pct),
-      alertPercent: b.alert_at_percent
-    };
-  }).filter(alert => alert.percent >= alert.alertPercent);
-
-  // Multi-dimensional Transaction Filtering
   let filteredTransactions = transactions;
 
   if (activeTab === 'needs_review') {
@@ -324,11 +319,11 @@ const Dashboard = () => {
     });
   }
 
-  const recentTransactions = [...filteredTransactions]
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 20);
+  const sortedFiltered = sortTransactionsLatestFirst(filteredTransactions);
+  const visibleTransactions = sortedFiltered.slice(0, visibleCount);
+  const remainingCount = Math.max(sortedFiltered.length - visibleCount, 0);
 
-  const topAnomaly = anomalies.length > 0 ? anomalies[0] : null;
+  const categoryRows = [...(categorySummary?.categories || [])].sort((a, b) => b.total - a.total);
 
   if (loading) {
     return (
@@ -343,7 +338,6 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-8 font-sans">
-      {/* Error Banner */}
       {error && (
         <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
@@ -351,7 +345,6 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Needs Review Urgent Banner */}
       {needsReviewCount > 0 && (
         <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 text-white flex flex-wrap items-center justify-between gap-3 shadow-md">
           <div className="flex items-center gap-3">
@@ -373,10 +366,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* 4 Core Financial Stat Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        
-        {/* Card 1: Total Outflow (Expenses) */}
         <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs relative overflow-hidden flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Outflow (Expenses)</span>
@@ -410,7 +400,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Card 2: Total Inflow (Income) */}
         <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs relative overflow-hidden flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Inflow (Income)</span>
@@ -427,7 +416,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Card 3: Net Cash Flow (Savings) */}
         <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs relative overflow-hidden flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Net Savings Flow</span>
@@ -448,7 +436,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Card 4: Total Logged Transactions */}
         <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs relative overflow-hidden flex flex-col justify-between">
           <div className="flex justify-between items-start">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Transaction Logged</span>
@@ -469,35 +456,52 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* Main Grid: Bar Chart & Category Donut */}
+      {/* Shared Header & Month Picker for Synced Charts */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white border border-slate-200 rounded-2xl shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-[#EAF7EF] text-[#16803C] rounded-xl border border-emerald-200">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              Monthly Analytics — <span className="text-[#16803C]">{monthYearLabel}</span>
+            </h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">
+              Daily spending curve and category share synchronized for {monthYearLabel}
+            </p>
+          </div>
+        </div>
+
+        <MonthPicker month={selectedMonth} year={selectedYear} onChange={handleMonthChange} />
+      </div>
+
+      {/* Synced Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Left 2 Cols: Interactive Daily Spending Curve */}
+        {/* Chart 1: Daily Spending Bar Chart */}
         <div className="lg:col-span-2 bg-white border border-slate-200 p-6 rounded-2xl shadow-xs space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-[#16803C]" />
-                Daily Spending Curve ({monthName})
+                Daily Spending ({monthYearLabel})
               </h3>
               <p className="text-xs text-slate-500 font-medium mt-0.5">Click any day bar to drill down into that day's exact transactions</p>
             </div>
 
             {peakAmount > 0 && (
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
-                <span>Peak Day: Aug {peakDay} (₹{peakAmount.toLocaleString('en-IN')})</span>
+                Peak Day: {monthName.slice(0, 3)} {peakDay} (₹{peakAmount.toLocaleString('en-IN')})
               </span>
             )}
           </div>
 
           <div className="h-64 w-full pt-4">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
-                data={barData} 
-                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              <BarChart
+                data={barData}
+                margin={{ top: 20, right: 10, left: -20, bottom: 0 }}
                 onClick={(e) => {
                   if (e && e.activePayload && e.activePayload.length > 0) {
                     const dayClicked = e.activePayload[0].payload.day;
@@ -508,13 +512,15 @@ const Dashboard = () => {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                 <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: '#64748B' }} axisLine={false} tickLine={false} />
-                <Tooltip 
+                <Tooltip
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
                       return (
                         <div className="bg-slate-900 text-white p-2.5 rounded-xl text-xs font-sans shadow-lg border border-slate-700">
-                          <div className="font-bold text-slate-300">Aug {data.day}, 2026</div>
+                          <div className="font-bold text-slate-300">
+                            {monthName} {data.day}, {selectedYear} {data.isToday ? '(Today)' : ''}
+                          </div>
                           <div className="text-sm font-black text-[#818CF8] mt-1">₹{data.amount.toLocaleString('en-IN')}</div>
                           {data.isSpike && (
                             <div className="text-[10px] text-amber-400 font-bold mt-1">⚠️ High Spend Day (Click to drill down)</div>
@@ -525,31 +531,41 @@ const Dashboard = () => {
                     return null;
                   }}
                 />
-                <Bar 
-                  dataKey="amount" 
+                <Bar
+                  dataKey="amount"
                   radius={[4, 4, 0, 0]}
                   className="cursor-pointer"
                 >
-                  {barData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={selectedDay === entry.day ? '#6366F1' : entry.isSpike ? '#EF4444' : '#16803C'} 
-                    />
-                  ))}
+                  {barData.map((entry, index) => {
+                    let fillColor = '#16803C';
+                    if (selectedDay === entry.day) {
+                      fillColor = '#6366F1';
+                    } else if (entry.isToday) {
+                      fillColor = '#F59E0B'; // Accent Amber color for Today
+                    } else if (entry.isSpike) {
+                      fillColor = '#EF4444';
+                    }
+                    return <Cell key={`cell-${index}`} fill={fillColor} />;
+                  })}
+                  <LabelList
+                    dataKey="todayLabel"
+                    position="top"
+                    style={{ fill: '#F59E0B', fontSize: 10, fontWeight: '800' }}
+                  />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Right 1 Col: Category Breakdown Donut Chart */}
+        {/* Chart 2: Category Breakdown Donut Chart */}
         <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-xs space-y-4 flex flex-col justify-between">
           <div>
             <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
               <Layers className="w-5 h-5 text-[#16803C]" />
               Category Breakdown
             </h3>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">Top spending allocations for {monthName}</p>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Top spending allocations for {monthYearLabel}</p>
           </div>
 
           <div className="h-44 w-full relative flex items-center justify-center">
@@ -569,55 +585,64 @@ const Dashboard = () => {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip 
+                  <Tooltip
                     formatter={(val) => [`₹${val.toLocaleString('en-IN')}`, 'Spent']}
                   />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="text-center text-xs text-slate-400 font-medium">No expenses logged yet</div>
+              <div className="text-center text-xs text-slate-400 font-medium">No expenses logged for {monthYearLabel}</div>
             )}
           </div>
 
-          {/* Donut Legend */}
           <div className="space-y-2 pt-2 border-t border-slate-100 max-h-40 overflow-y-auto">
-            {pieData.slice(0, 4).map((cat, idx) => (
-              <div key={idx} className="flex items-center justify-between text-xs font-semibold">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }}></span>
-                  <span className="text-slate-700 capitalize">{cat.name}</span>
+            {pieData.slice(0, 5).map((cat, idx) => {
+              const shortVal = cat.value >= 100000
+                ? `₹${(cat.value / 100000).toFixed(1).replace('.0', '')}L+`
+                : cat.value >= 1000
+                ? `₹${(cat.value / 1000).toFixed(1).replace('.0', '')}k+`
+                : `₹${Math.round(cat.value)}+`;
+              const pct = totalSpent > 0 ? Math.round((cat.value / totalSpent) * 100) : 0;
+              return (
+                <div key={idx} className="flex items-center justify-between text-xs font-semibold">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }}></span>
+                    <span className="text-slate-700 capitalize">{cat.name}</span>
+                  </div>
+                  <span className="font-bold text-slate-900">{shortVal} <span className="text-slate-500 font-normal">({pct}%)</span></span>
                 </div>
-                <span className="font-bold text-slate-900">₹{cat.value.toLocaleString('en-IN')}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
-
       </div>
 
-      {/* Transactions List Section with Controls */}
       <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-xs space-y-5">
-        
-        {/* Title & Action Bar */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2 flex-wrap">
               Transactions Log
               {selectedDay !== null && (
                 <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
-                  <span>Filtered: Aug {selectedDay}</span>
+                  <span>Filtered: {monthName.slice(0, 3)} {selectedDay}</span>
                   <button onClick={() => setSelectedDay(null)} className="hover:text-indigo-900 cursor-pointer">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
               )}
+              {selectedCategory && (
+                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  <span>{selectedCategory}</span>
+                  <button onClick={() => setSelectedCategory(null)} className="hover:text-emerald-900 cursor-pointer">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              )}
             </h3>
-            <p className="text-xs text-slate-500 font-medium">Real-time synchronized ledger with inline re-categorization</p>
+            <p className="text-xs text-slate-500 font-medium">Latest transactions first · {sortedFiltered.length} matching</p>
           </div>
 
-          {/* Search, Filter, & Export Actions */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Search Input */}
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
@@ -634,7 +659,6 @@ const Dashboard = () => {
               )}
             </div>
 
-            {/* Tab Pills */}
             <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 text-xs font-bold">
               <button
                 onClick={() => setActiveTab('all')}
@@ -672,7 +696,6 @@ const Dashboard = () => {
               </button>
             </div>
 
-            {/* Sanitized CSV Export Button */}
             <button
               onClick={exportToCSV}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
@@ -684,23 +707,44 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Transaction items list */}
-        <div className="grid grid-cols-1 gap-3">
-          {recentTransactions.length > 0 ? (
-            recentTransactions.map(tx => (
-              <TransactionCard 
-                key={tx.id} 
-                tx={tx} 
-                anomaly={tx.merchant ? anomalyMap[tx.merchant.toLowerCase()] : null}
-                onRecategorize={handleRecategorize}
-              />
-            ))
-          ) : (
-            <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50 text-xs">
-              No transactions match your active filters or search criteria.
+        <div className="relative">
+          <div ref={txSentinelRef} className="h-px w-full" aria-hidden="true" />
+          <div
+            className="overflow-hidden transition-[max-height] duration-500 ease-in-out"
+            style={{ maxHeight: visibleTransactions.length === 0 ? 240 : visibleTransactions.length * 200 }}
+          >
+            <div className="grid grid-cols-1 gap-3">
+              {visibleTransactions.length > 0 ? (
+                visibleTransactions.map(tx => (
+                  <div key={tx.id} className="tx-list-item">
+                    <TransactionCard
+                      tx={tx}
+                      anomaly={tx.merchant ? anomalyMap[tx.merchant.toLowerCase()] : null}
+                      onRecategorize={handleRecategorize}
+                    />
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-xl bg-slate-50 text-xs">
+                  No transactions match your active filters or search criteria.
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
+
+        {remainingCount > 0 && (
+          <div className="flex justify-center pt-1">
+            <button
+              type="button"
+              onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs font-extrabold transition-colors cursor-pointer"
+            >
+              <ChevronDown className="w-4 h-4 text-[#16803C]" />
+              Show More ({remainingCount} remaining)
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,11 @@
 package com.smartspend.app
 
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonDeserializationContext
+import com.google.gson.JsonDeserializer
+import com.google.gson.JsonElement
+import com.google.gson.reflect.TypeToken
+import java.lang.reflect.Type
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -12,6 +18,39 @@ import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+
+class TransactionListDeserializer : JsonDeserializer<PaginatedTransactionResponse> {
+    override fun deserialize(
+        json: JsonElement?,
+        typeOfT: Type?,
+        context: JsonDeserializationContext?
+    ): PaginatedTransactionResponse {
+        if (json == null || json.isJsonNull) {
+            return PaginatedTransactionResponse(emptyList(), 0, 1, 50, false, 0)
+        }
+        if (json.isJsonArray) {
+            val listType = object : TypeToken<List<TransactionData>>() {}.type
+            val items: List<TransactionData> = context?.deserialize(json, listType) ?: emptyList()
+            return PaginatedTransactionResponse(items, items.size, 1, items.size, false, 1)
+        } else if (json.isJsonObject) {
+            val obj = json.asJsonObject
+            val listType = object : TypeToken<List<TransactionData>>() {}.type
+            val itemsElement = obj.get("transactions")
+            val items: List<TransactionData> = if (itemsElement != null && !itemsElement.isJsonNull) {
+                context?.deserialize(itemsElement, listType) ?: emptyList()
+            } else {
+                emptyList()
+            }
+            val totalCount = obj.get("total_count")?.asInt ?: items.size
+            val page = obj.get("page")?.asInt ?: 1
+            val limit = obj.get("limit")?.asInt ?: (if (items.isNotEmpty()) items.size else 50)
+            val hasMore = obj.get("has_more")?.asBoolean ?: false
+            val totalPages = obj.get("total_pages")?.asInt ?: 1
+            return PaginatedTransactionResponse(items, totalCount, page, limit, hasMore, totalPages)
+        }
+        return PaginatedTransactionResponse(emptyList(), 0, 1, 50, false, 0)
+    }
+}
 
 /**
  * Payload for SMS ingestion endpoint.
@@ -148,9 +187,23 @@ interface BackendService {
     @GET("transactions/")
     suspend fun getTransactions(
         @Header("Authorization") token: String,
+        @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 50,
-        @Query("offset") offset: Int = 0
-    ): Response<List<TransactionData>>
+        @Query("month") month: Int? = null,
+        @Query("year") year: Int? = null,
+        @Query("start_date") startDate: String? = null,
+        @Query("end_date") endDate: String? = null
+    ): Response<PaginatedTransactionResponse>
+
+    /**
+     * Fetch monthly category spending summary with budget utilization.
+     */
+    @GET("transactions/monthly-category-summary")
+    suspend fun getMonthlyCategorySummary(
+        @Header("Authorization") token: String,
+        @Query("month") month: Int,
+        @Query("year") year: Int
+    ): Response<MonthlyCategorySummaryResponse>
 
     /**
      * Fetch category totals summary for a given month (YYYY-MM).
@@ -212,9 +265,13 @@ interface BackendService {
          * Creates a configured Retrofit BackendService instance.
          */
         fun create(): BackendService {
+            val gson = GsonBuilder()
+                .registerTypeAdapter(PaginatedTransactionResponse::class.java, TransactionListDeserializer())
+                .create()
+
             return Retrofit.Builder()
                 .baseUrl(BASE_URL)
-                .addConverterFactory(GsonConverterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .build()
                 .create(BackendService::class.java)
         }

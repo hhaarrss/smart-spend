@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ArrowUpRight, ArrowDownLeft, Calendar, Landmark, AlertOctagon, Edit3, Check, HelpCircle, ShieldCheck } from 'lucide-react';
 import CategoryBadge from './CategoryBadge';
 import { categoryService } from '../services/api';
+import { isNewTransaction } from '../utils/transactions';
+import { getCategoryMeta } from '../utils/categoryMeta';
 
 const DEFAULT_CATEGORIES = [
   'Food & Dining', 'Groceries', 'Shopping', 'Transportation', 'Telecom & Recharge',
@@ -39,6 +41,9 @@ const TransactionCard = ({ tx, anomaly, onRecategorize }) => {
   const isCredit = tx.type === 'credit';
   const amount = parseFloat(tx.amount) || 0;
   const isNeedsReview = tx.review_status === 'needs_review' || tx.category === 'Needs Review';
+  const showNewBadge = isNewTransaction(tx);
+  const categoryMeta = getCategoryMeta(tx.category);
+  const CategoryIcon = categoryMeta.icon;
 
   const formatDate = (dateStr) => {
     try {
@@ -103,9 +108,18 @@ const TransactionCard = ({ tx, anomaly, onRecategorize }) => {
         {/* Details */}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
+            <span className={`p-1 rounded-md ${categoryMeta.bg} ${categoryMeta.text}`} title={tx.category}>
+              <CategoryIcon className="w-3.5 h-3.5" />
+            </span>
             <h4 className="font-bold text-slate-900 text-sm truncate">
               {tx.merchant || 'Unknown Merchant'}
             </h4>
+
+            {showNewBadge && (
+              <span className="inline-flex items-center text-[9px] font-extrabold tracking-wider text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                NEW
+              </span>
+            )}
             
             {/* Needs Review Badge */}
             {isNeedsReview && (
@@ -219,7 +233,7 @@ const TransactionCard = ({ tx, anomaly, onRecategorize }) => {
       {/* Amount & Time */}
       <div className="text-right flex-shrink-0 min-w-[120px]">
         <div className={`text-base font-black tracking-tight ${
-          isCredit ? 'text-[#16803C]' : anomaly ? 'text-[#EF4444]' : 'text-slate-900'
+          isCredit ? 'text-[#16803C]' : 'text-[#EF4444]'
         }`}>
           {isCredit ? '+' : '-'} ₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </div>

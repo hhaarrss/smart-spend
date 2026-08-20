@@ -19,13 +19,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.smartspend.app.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.provider.Telephony
+import android.widget.NumberPicker
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -44,13 +47,22 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var transactionAdapter: TransactionAdapter
     private lateinit var budgetAdapter: BudgetAdapter
+    private lateinit var categoryAdapter: CategoryAdapter
 
     private var allTransactions: List<TransactionData> = emptyList()
     private var allBudgets: List<BudgetLimitData> = emptyList()
     private var categorySpendingMap: Map<String, Double> = emptyMap()
+    private var categorySummaryItems: List<CategorySummaryItem> = emptyList()
 
     private var currentFilterMode = "ALL" // ALL, NEEDS_REVIEW, DEBITS, CREDITS
     private var isDebitType = true
+
+    private val nowCal = Calendar.getInstance()
+    private var selectedMonth: Int = nowCal.get(Calendar.MONTH) + 1
+    private var selectedYear: Int = nowCal.get(Calendar.YEAR)
+    private var visibleTxCount = PAGE_SIZE
+    private var remainingTxCount = 0
+    private var hasScrolledAwayFromTop = false
 
     private val canonicalCategories = listOf(
         "Food & Dining", "Groceries", "Shopping", "Transportation",
@@ -85,13 +97,11 @@ class MainActivity : ComponentActivity() {
         sharedPrefs = getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
         sharedPrefs.registerOnSharedPreferenceChangeListener(prefsListener)
 
-        transactionAdapter = TransactionAdapter { tx ->
-            showReviewTransactionDialog(tx)
-        }
-
         setupAdapters()
         setupBottomNavigation()
         setupFormControls()
+        setupMonthPicker()
+        setupTransactionPagination()
         checkPermissions()
         setupListeners()
         navigateToCorrectScreen()
@@ -111,6 +121,11 @@ class MainActivity : ComponentActivity() {
         }
         binding.rvTransactions.layoutManager = LinearLayoutManager(this)
         binding.rvTransactions.adapter = transactionAdapter
+        binding.rvTransactions.itemAnimator = DefaultItemAnimator().apply {
+            addDuration = 280
+            removeDuration = 280
+            moveDuration = 280
+        }
 
         budgetAdapter = BudgetAdapter { budget ->
             showEditBudgetDialog(budget)
@@ -224,6 +239,101 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun setupMonthPicker() {
+        refreshMonthLabel()
+        binding.tvSelectedMonth.setOnClickListener { showMonthPickerDialog() }
+    }
+
+    private fun setupTransactionPagination() {
+        binding.btnShowMore.setOnClickListener {
+            visibleTxCount += PAGE_SIZE
+            applySearchAndFilter()
+        }
+
+        binding.rvTransactions.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                if (dy > 8) hasScrolledAwayFromTop = true
+                if (dy < 0 && !recyclerView.canScrollVertically(-1)) {
+                    collapseTransactionsIfNeeded()
+                }
+            }
+        })
+
+        binding.screenHome.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+            if (scrollY > oldScrollY + 8) hasScrolledAwayFromTop = true
+            if (scrollY < oldScrollY && scrollY <= 24) {
+                collapseTransactionsIfNeeded()
+            }
+        }
+    }
+
+    private fun collapseTransactionsIfNeeded() {
+        if (hasScrolledAwayFromTop && visibleTxCount > PAGE_SIZE) {
+            visibleTxCount = PAGE_SIZE
+            hasScrolledAwayFromTop = false
+            applySearchAndFilter()
+        }
+    }
+
+    private fun shiftMonth(delta: Int) {
+        var month = selectedMonth + delta
+        var year = selectedYear
+        if (month < 1) {
+            month = 12
+            year -= 1
+        } else if (month > 12) {
+            month = 1
+            year += 1
+        }
+        if (year < 2020 || year > 2030) return
+        selectedMonth = month
+        selectedYear = year
+        visibleTxCount = PAGE_SIZE
+        hasScrolledAwayFromTop = false
+        refreshMonthLabel()
+        fetchDashboardData()
+    }
+
+    private fun refreshMonthLabel() {
+        val label = DateUtils.formatMonthYear(selectedMonth, selectedYear)
+        binding.tvSelectedMonth.text = "📅 $label"
+        binding.tvDailySpendingHeader.text = "Daily Spending — $label"
+    }
+
+    private fun showMonthPickerDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_month_picker, null)
+        val npMonth = view.findViewById<NumberPicker>(R.id.npMonth)
+        val npYear = view.findViewById<NumberPicker>(R.id.npYear)
+        val months = arrayOf(
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        )
+        npMonth.minValue = 0
+        npMonth.maxValue = 11
+        npMonth.displayedValues = months
+        npMonth.value = selectedMonth - 1
+        npMonth.wrapSelectorWheel = false
+
+        npYear.minValue = 2020
+        npYear.maxValue = 2030
+        npYear.value = selectedYear
+        npYear.wrapSelectorWheel = false
+
+        AlertDialog.Builder(this)
+            .setTitle("Select month")
+            .setView(view)
+            .setPositiveButton("Apply") { _, _ ->
+                selectedMonth = npMonth.value + 1
+                selectedYear = npYear.value
+                visibleTxCount = PAGE_SIZE
+                hasScrolledAwayFromTop = false
+                refreshMonthLabel()
+                fetchDashboardData()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun setupListeners() {
         binding.btnLogin.setOnClickListener { performLogin() }
     }
@@ -244,7 +354,7 @@ class MainActivity : ComponentActivity() {
     private fun applySearchAndFilter() {
         val query = binding.etSearchTransactions.text.toString().trim().lowercase()
 
-        val filtered = allTransactions.filter { tx ->
+        val filtered = DateUtils.sortLatestFirst(allTransactions.filter { tx ->
             val matchesQuery = query.isEmpty() ||
                     (tx.merchant?.lowercase()?.contains(query) == true) ||
                     (tx.category.lowercase().contains(query)) ||
@@ -258,9 +368,32 @@ class MainActivity : ComponentActivity() {
             }
 
             matchesQuery && matchesFilter
-        }
+        })
 
-        transactionAdapter.updateData(filtered)
+        remainingTxCount = (filtered.size - visibleTxCount).coerceAtLeast(0)
+        val visible = filtered.take(visibleTxCount)
+        transactionAdapter.submitList(buildTxListItems(visible))
+
+        if (remainingTxCount > 0) {
+            binding.btnShowMore.visibility = View.VISIBLE
+            binding.btnShowMore.text = "Show More ($remainingTxCount remaining)"
+        } else {
+            binding.btnShowMore.visibility = View.GONE
+        }
+    }
+
+    private fun buildTxListItems(transactions: List<TransactionData>): List<TxListItem> {
+        val items = mutableListOf<TxListItem>()
+        var lastHeader: String? = null
+        for (tx in transactions) {
+            val header = DateUtils.dayHeader(tx)
+            if (header != lastHeader) {
+                items.add(TxListItem.Header(header))
+                lastHeader = header
+            }
+            items.add(TxListItem.Row(tx))
+        }
+        return items
     }
 
     // ──────────────── Data Fetching & Dashboard Overview Binding ────────────────
@@ -272,27 +405,44 @@ class MainActivity : ComponentActivity() {
             return
         }
         val authHeader = "Bearer $token"
-        val currentMonth = SimpleDateFormat("yyyy-MM", Locale.getDefault()).format(Date())
+        refreshMonthLabel()
+        binding.chartLoadingSpinner.visibility = View.VISIBLE
+        binding.cvDailySpendChart.alpha = 0.35f
 
         lifecycleScope.launch {
             try {
-                // Fetch Transactions
-                val txResp = RetrofitClient.apiService.getTransactions(authHeader, limit = 100)
-                if (txResp.code() == 401) {
+                val txs = fetchAllMonthTransactions(authHeader, selectedMonth, selectedYear)
+                if (txs == null) {
+                    runOnUiThread {
+                        binding.chartLoadingSpinner.visibility = View.GONE
+                        binding.cvDailySpendChart.alpha = 1f
+                    }
+                    return@launch
+                }
+                allTransactions = DateUtils.sortLatestFirst(txs)
+
+                val catResp = RetrofitClient.apiService.getMonthlyCategorySummary(
+                    authHeader, selectedMonth, selectedYear
+                )
+                if (catResp.code() == 401) {
                     handleUnauthorized()
                     return@launch
                 }
-                if (txResp.isSuccessful && txResp.body() != null) {
-                    allTransactions = txResp.body()!!
+                val monthlySummary = if (catResp.isSuccessful) catResp.body() else null
+                if (monthlySummary != null) {
+                    categorySpendingMap = monthlySummary.categories.associate { it.category to it.total }
+                    categorySummaryItems = monthlySummary.categories.sortedByDescending { it.total }
+                } else {
+                    val fallbackMonth = "%04d-%02d".format(selectedYear, selectedMonth)
+                    val oldCat = RetrofitClient.apiService.getCategorySummary(authHeader, fallbackMonth)
+                    if (oldCat.isSuccessful && oldCat.body() != null) {
+                        categorySpendingMap = oldCat.body()!!
+                    }
+                    categorySummaryItems = categorySpendingMap.map { (name, total) ->
+                        CategorySummaryItem(name, total, 0.0, 0, "N/A", 0.0, 0.0)
+                    }.sortedByDescending { it.total }
                 }
 
-                // Fetch Category Summary
-                val catResp = RetrofitClient.apiService.getCategorySummary(authHeader, currentMonth)
-                if (catResp.isSuccessful && catResp.body() != null) {
-                    categorySpendingMap = catResp.body()!!
-                }
-
-                // Fetch Budgets
                 val bResp = RetrofitClient.apiService.getBudgets(authHeader)
                 if (bResp.isSuccessful && bResp.body() != null) {
                     allBudgets = bResp.body()!!
@@ -321,8 +471,41 @@ class MainActivity : ComponentActivity() {
                 runOnUiThread {
                     Toast.makeText(this@MainActivity, "Refresh Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
+            } finally {
+                runOnUiThread {
+                    binding.chartLoadingSpinner.visibility = View.GONE
+                    binding.cvDailySpendChart.alpha = 1f
+                }
             }
         }
+    }
+
+    private suspend fun fetchAllMonthTransactions(
+        authHeader: String,
+        month: Int,
+        year: Int
+    ): List<TransactionData>? {
+        val all = mutableListOf<TransactionData>()
+        var page = 1
+        while (page <= 40) {
+            val txResp = RetrofitClient.apiService.getTransactions(
+                authHeader,
+                page = page,
+                limit = 50,
+                month = month,
+                year = year
+            )
+            if (txResp.code() == 401) {
+                handleUnauthorized()
+                return null
+            }
+            val body = txResp.body()
+            if (!txResp.isSuccessful || body == null) break
+            all.addAll(body.transactions)
+            if (!body.has_more) break
+            page++
+        }
+        return all
     }
 
     private fun renderSummaryStatCards() {
@@ -355,7 +538,7 @@ class MainActivity : ComponentActivity() {
             binding.tvTopCategoryPercent.text = "0.0% of spend"
         }
 
-        // Daily Spend Bar Chart binding
+        // Daily Spend Bar Chart binding with Today calculation
         val dailyTotals = mutableMapOf<Int, Double>()
         for (tx in debits) {
             try {
@@ -364,14 +547,20 @@ class MainActivity : ComponentActivity() {
             } catch (e: Exception) {}
         }
 
+        val cal = java.util.Calendar.getInstance()
+        val curMonth = cal.get(java.util.Calendar.MONTH) + 1
+        val curYear = cal.get(java.util.Calendar.YEAR)
+        val curDay = cal.get(java.util.Calendar.DAY_OF_MONTH)
+        val isCurrentMonth = (selectedMonth == curMonth && selectedYear == curYear)
+
         val avgDailySpend = if (dailyTotals.isNotEmpty()) dailyTotals.values.average() else 0.0
+        val daysInMonth = DateUtils.daysInMonth(selectedMonth, selectedYear)
         val barList = mutableListOf<DailyBarData>()
-        for (d in 1..31) {
+        for (d in 1..daysInMonth) {
             val amt = dailyTotals[d] ?: 0.0
             val isSpike = avgDailySpend > 0 && amt >= (avgDailySpend * 2.0)
-            if (amt > 0 || d % 5 == 0) {
-                barList.add(DailyBarData(day = d, amount = amt, isSpike = isSpike))
-            }
+            val isToday = isCurrentMonth && (d == curDay)
+            barList.add(DailyBarData(day = d, amount = amt, isSpike = isSpike, isToday = isToday))
         }
         binding.cvDailySpendChart.setData(barList)
         binding.cvDailySpendChart.onBarSelectedListener = { bar ->
@@ -406,6 +595,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun formatShortAmount(amount: Double): String {
+        return when {
+            amount >= 100_000 -> "₹%.1fL+".format(amount / 100_000).replace(".0L+", "L+")
+            amount >= 1_000 -> "₹%.1fk+".format(amount / 1_000).replace(".0k+", "k+")
+            else -> "₹%.0f+".format(amount)
+        }
+    }
+
     private fun renderDonutChartAndLegend() {
         val colors = listOf(
             "#8B5CF6", "#84CC16", "#10B981", "#F59E0B",
@@ -421,6 +618,8 @@ class MainActivity : ComponentActivity() {
             val pct = ((entry.value / totalAmt) * 100).toInt()
             val colorHex = colors[idx % colors.size]
             slices.add(CategorySlice(entry.key, entry.value, pct, colorHex))
+
+            val shortAmt = formatShortAmount(entry.value)
 
             // Legend item view
             val legendRow = LinearLayout(this).apply {
@@ -440,7 +639,7 @@ class MainActivity : ComponentActivity() {
                 textSize = 12f
             }
             val pctText = TextView(this).apply {
-                text = "$pct%"
+                text = "$shortAmt ($pct%)"
                 setTextColor(Color.parseColor("#F8FAFC"))
                 textSize = 12f
                 typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -933,5 +1132,9 @@ class MainActivity : ComponentActivity() {
             }
         )
         renderInsightsUI(computedData)
+    }
+
+    companion object {
+        private const val PAGE_SIZE = 10
     }
 }
