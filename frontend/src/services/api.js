@@ -83,6 +83,7 @@ export const transactionService = {
     if (filters.category) params.category = filters.category;
     if (filters.type) params.type = filters.type;
     if (filters.review_status) params.review_status = filters.review_status;
+    if (filters.include_transfers !== undefined) params.include_transfers = filters.include_transfers;
 
     const response = await api.get('/transactions/', { params });
     return response.data;
@@ -149,6 +150,41 @@ export const transactionService = {
       params: { month },
     });
     return response.data; // Returns Dict[str, float]
+  },
+
+  /**
+   * Partially edits an existing transaction (category, merchant, amount, date, notes).
+   */
+  updateTransaction: async (id, updates) => {
+    const response = await api.patch(`/transactions/${id}`, updates);
+    return response.data;
+  },
+
+  /**
+   * Hard deletes a transaction.
+   */
+  deleteTransaction: async (id) => {
+    const response = await api.delete(`/transactions/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Fetches unreviewed transactions needing user categorization.
+   */
+  getNeedsReviewTransactions: async () => {
+    const response = await api.get('/transactions/needs-review');
+    return response.data;
+  },
+
+  /**
+   * 1-click categorizes a transaction and records merchant learning.
+   */
+  categorizeTransaction: async (id, category, merchantAlias = null) => {
+    const response = await api.patch(`/transactions/${id}/categorize`, {
+      category,
+      merchant_alias: merchantAlias,
+    });
+    return response.data;
   },
 };
 

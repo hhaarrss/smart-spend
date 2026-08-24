@@ -22,6 +22,8 @@ class TransactionBase(BaseModel):
     source: str = Field(
         "manual", description="Source of transaction registration."
     )
+    is_transfer: bool = Field(False, description="True if transaction is a P2P transfer.")
+    transfer_to: Optional[str] = Field(None, description="Name/handle of transfer recipient.")
 
     @field_validator("type")
     @classmethod
@@ -46,7 +48,18 @@ class TransactionBase(BaseModel):
 class TransactionCreate(TransactionBase):
     """Schema for adding new transactions."""
 
-    pass
+    notes: Optional[str] = None
+
+
+class TransactionUpdate(BaseModel):
+    """Schema for editing an existing transaction."""
+
+    category: Optional[str] = Field(None, max_length=100, description="Updated category name.")
+    merchant: Optional[str] = Field(None, max_length=255, description="Updated merchant name.")
+    amount: Optional[float] = Field(None, gt=0, description="Updated amount (must be positive).")
+    date: Optional[datetime] = Field(None, description="Updated transaction date/time.")
+    notes: Optional[str] = Field(None, description="Optional user notes.")
+    is_transfer: Optional[bool] = Field(None, description="Updated transfer flag.")
 
 
 class TransactionResponse(TransactionBase):
@@ -60,6 +73,7 @@ class TransactionResponse(TransactionBase):
     upi_ref: Optional[str] = None
     confidence: Optional[str] = None
     review_status: Optional[str] = "reviewed"
+    notes: Optional[str] = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -121,7 +135,25 @@ class MonthlyCategorySummaryResponse(BaseModel):
     month: int = Field(..., ge=1, le=12, description="Target month (1-12).")
     year: int = Field(..., ge=2020, le=2030, description="Target year (2020-2030).")
     total_spent: float = Field(..., description="Total amount spent across all categories in the month.")
+    merchant_spent: float = Field(0.0, description="Amount spent exclusively on merchants.")
+    transfer_sent: float = Field(0.0, description="Amount transferred to people (debit transfers).")
+    transfer_received: float = Field(0.0, description="Amount received from people (credit transfers).")
     categories: List[CategorySummaryItem] = Field(..., description="List of category summary items sorted by total DESC.")
     previous_month_total: float = Field(..., description="Total amount spent in the previous month.")
     month_over_month_change: float = Field(..., description="Percentage change compared to previous month.")
+
+
+class NeedsReviewResponse(BaseModel):
+    """Schema for needs-review transactions count and list."""
+
+    count: int = Field(..., description="Total unreviewed transactions count.")
+    transactions: List[TransactionResponse] = Field(..., description="Unreviewed transaction items.")
+    message: str = Field("Fix these transactions to improve accuracy", description="User facing header message.")
+
+
+class CategorizeRequest(BaseModel):
+    """Schema for 1-click categorization request."""
+
+    category: str = Field(..., max_length=100, description="Target canonical category.")
+    merchant_alias: Optional[str] = Field(None, description="Optional merchant/VPA name to map to this category for future transactions.")
 

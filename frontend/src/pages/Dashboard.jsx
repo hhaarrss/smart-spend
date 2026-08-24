@@ -7,10 +7,11 @@ import {
 import {
   AlertTriangle, ShoppingBag, Wallet, Activity,
   TrendingUp, ArrowUpRight, ArrowDownRight, X, HelpCircle,
-  Search, Download, Layers, ChevronDown, Calendar
+  Search, Download, Layers, ChevronDown, Calendar, Sparkles
 } from 'lucide-react';
 import TransactionCard from '../components/TransactionCard';
 import MonthPicker from '../components/MonthPicker';
+import NeedsReviewModal from '../components/NeedsReviewModal';
 import { fetchAllMonthTransactions, sortTransactionsLatestFirst } from '../utils/transactions';
 
 const PAGE_SIZE = 10;
@@ -43,6 +44,20 @@ const Dashboard = () => {
 
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [includeTransfers, setIncludeTransfers] = useState(false);
+
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [needsReviewItems, setNeedsReviewItems] = useState([]);
+
+  const openNeedsReviewModal = async () => {
+    try {
+      const res = await transactionService.getNeedsReviewTransactions();
+      setNeedsReviewItems(res.transactions || []);
+      setIsReviewModalOpen(true);
+    } catch (err) {
+      console.error('[Dashboard] Error opening needs review modal:', err);
+    }
+  };
 
   const selectedMonthRef = useRef(selectedMonth);
   const selectedYearRef = useRef(selectedYear);
@@ -149,6 +164,26 @@ const Dashboard = () => {
     }
   };
 
+  const handleUpdateTransaction = async (transactionId, updates) => {
+    try {
+      const updatedTx = await transactionService.updateTransaction(transactionId, updates);
+      setTransactions(prev => prev.map(t => t.id === transactionId ? { ...t, ...updatedTx } : t));
+      await loadDashboardData(selectedMonth, selectedYear, false);
+    } catch (err) {
+      console.error('[Dashboard] Error updating transaction:', err);
+    }
+  };
+
+  const handleDeleteTransaction = async (transactionId) => {
+    try {
+      await transactionService.deleteTransaction(transactionId);
+      setTransactions(prev => prev.filter(t => t.id !== transactionId));
+      await loadDashboardData(selectedMonth, selectedYear, false);
+    } catch (err) {
+      console.error('[Dashboard] Error deleting transaction:', err);
+    }
+  };
+
   const exportToCSV = () => {
     if (!transactions || transactions.length === 0) return;
 
@@ -193,7 +228,13 @@ const Dashboard = () => {
   const debits = transactions.filter(t => t.type === 'debit');
   const credits = transactions.filter(t => t.type === 'credit');
 
-  const totalSpent = debits.reduce((acc, t) => acc + parseFloat(t.amount), 0);
+  const merchantDebits = debits.filter(t => !t.is_transfer && t.category !== 'Transfer');
+  const transferDebits = debits.filter(t => t.is_transfer || t.category === 'Transfer');
+
+  const merchantSpent = merchantDebits.reduce((acc, t) => acc + parseFloat(t.amount), 0);
+  const transferSent = transferDebits.reduce((acc, t) => acc + parseFloat(t.amount), 0);
+  const totalSpent = includeTransfers ? (merchantSpent + transferSent) : merchantSpent;
+
   const totalIncome = credits.reduce((acc, t) => acc + parseFloat(t.amount), 0);
   const netCashFlow = totalIncome - totalSpent;
   const totalTxCount = transactions.length;
@@ -206,20 +247,24 @@ const Dashboard = () => {
   const spentDeltaPercent = hasPrevData ? rawMomDelta.toFixed(1) : null;
   const isSpentIncrease = totalSpent >= prevTotalSpent;
 
+  const chartDebits = includeTransfers ? debits : merchantDebits;
+
   const categoryTotals = {};
-  debits.forEach(t => {
+  chartDebits.forEach(t => {
     categoryTotals[t.category] = (categoryTotals[t.category] || 0) + parseFloat(t.amount);
   });
 
   const FINTECH_COLORS = {
     'food & dining': '#16803C',
+    'food': '#16803C',
     'groceries': '#84CC16',
     'shopping': '#22A447',
     'transportation': '#7655B8',
+    'transport': '#7655B8',
     'utilities': '#F59E0B',
     'entertainment': '#EF4444',
     'healthcare': '#0EA5E9',
-    'telecom & recharge': '#3B82F6',
+    'transfer': '#64748B',
     'other': '#94A3B8'
   };
 
@@ -358,13 +403,38 @@ const Dashboard = () => {
           </div>
 
           <button
-            onClick={() => setActiveTab(activeTab === 'needs_review' ? 'all' : 'needs_review')}
-            className="px-4 py-2 bg-white text-amber-800 hover:bg-amber-50 rounded-xl font-bold text-xs shadow-xs transition-colors cursor-pointer"
+            onClick={openNeedsReviewModal}
+            className="px-4 py-2 bg-white text-amber-800 hover:bg-amber-50 rounded-xl font-bold text-xs shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
           >
-            {activeTab === 'needs_review' ? 'View All Transactions' : 'Review Pending Now →'}
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            <span>Review Pending Now ({needsReviewCount}) →</span>
           </button>
         </div>
       )}
+
+      {/* Control Header & P2P Toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-2">
+          <MonthPicker
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onMonthChange={handleMonthChange}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIncludeTransfers(!includeTransfers)}
+          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold text-xs border transition-all cursor-pointer ${
+            includeTransfers
+              ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+              : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+          }`}
+        >
+          <span>Include Transfers</span>
+          <span className={`w-2.5 h-2.5 rounded-full ${includeTransfers ? 'bg-emerald-400' : 'bg-slate-400'}`}></span>
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-xs relative overflow-hidden flex flex-col justify-between">
@@ -380,22 +450,15 @@ const Dashboard = () => {
               ₹{totalSpent.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
 
-            <div className="flex items-center gap-1.5 mt-2">
-              {hasPrevData ? (
-                <>
-                  <span className={`inline-flex items-center gap-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                    isSpentIncrease ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
-                  }`}>
-                    {isSpentIncrease ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                    {spentDeltaPercent}%
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-medium">vs {prevMonthName}</span>
-                </>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                  N/A (First Month Tracked)
-                </span>
-              )}
+            <div className="mt-2 space-y-1 text-[11px]">
+              <div className="flex justify-between font-semibold text-slate-600">
+                <span>Spent on merchants:</span>
+                <span className="text-slate-900 font-bold">₹{merchantSpent.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between font-medium text-slate-500">
+                <span>Transferred to people:</span>
+                <span className="text-slate-700 font-bold">₹{transferSent.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -721,6 +784,8 @@ const Dashboard = () => {
                       tx={tx}
                       anomaly={tx.merchant ? anomalyMap[tx.merchant.toLowerCase()] : null}
                       onRecategorize={handleRecategorize}
+                      onUpdate={handleUpdateTransaction}
+                      onDelete={handleDeleteTransaction}
                     />
                   </div>
                 ))
@@ -746,6 +811,16 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+
+      <NeedsReviewModal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        transactions={needsReviewItems}
+        onFinished={() => {
+          setIsReviewModalOpen(false);
+          loadDashboardData(selectedMonth, selectedYear, false);
+        }}
+      />
     </div>
   );
 };

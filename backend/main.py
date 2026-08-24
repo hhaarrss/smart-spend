@@ -68,6 +68,7 @@ from routers.family import router as family_router
 from routers.insights import router as insights_router
 from routers.seed import router as seed_router
 from routers.categories import router as categories_router
+from routers.users import router as users_router
 
 # Import database engine for startup check
 from database import engine
@@ -135,6 +136,7 @@ app.include_router(family_router)
 app.include_router(insights_router)
 app.include_router(seed_router)
 app.include_router(categories_router)
+app.include_router(users_router)
 
 
 @app.on_event("startup")

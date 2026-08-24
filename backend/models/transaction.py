@@ -4,7 +4,7 @@ SQLAlchemy ORM model for Transaction.
 
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Integer, Numeric, String, DateTime, ForeignKey, Date, Text
+from sqlalchemy import Integer, Numeric, String, DateTime, ForeignKey, Date, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -48,6 +48,11 @@ class Transaction(Base):
     hash_fingerprint: Mapped[Optional[str]] = mapped_column(
         String(64), unique=True, index=True, nullable=True
     )
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_transfer: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False, index=True
+    )
+    transfer_to: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -85,6 +85,8 @@ data class TransactionData(
     val source: String?,
     val confidence: String?,
     val review_status: String?,
+    val is_transfer: Boolean = false,
+    val transfer_to: String? = null,
     val created_at: String
 )
 
@@ -157,10 +159,89 @@ data class InsightsSummaryData(
     val budget_alerts: List<Map<String, Any>>?
 )
 
+data class TransactionUpdatePayload(
+    val category: String? = null,
+    val merchant: String? = null,
+    val amount: Double? = null,
+    val date: String? = null,
+    val notes: String? = null
+)
+
+data class CategoriesResponse(
+    val categories: List<String>
+)
+
+data class FcmTokenPayload(
+    val fcm_token: String
+)
+
+data class NeedsReviewResponse(
+    val count: Int,
+    val transactions: List<TransactionData>,
+    val message: String
+)
+
+data class CategorizePayload(
+    val category: String,
+    val merchant_alias: String? = null
+)
+
 /**
  * Retrofit service interface for all SmartSpend backend API calls.
  */
 interface BackendService {
+
+    /**
+     * Fetch transactions requiring user review/categorization.
+     */
+    @GET("transactions/needs-review")
+    suspend fun getNeedsReviewTransactions(
+        @Header("Authorization") token: String
+    ): Response<NeedsReviewResponse>
+
+    /**
+     * 1-click categorize transaction and record merchant learning.
+     */
+    @PATCH("transactions/{id}/categorize")
+    suspend fun categorizeTransaction(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int,
+        @Body payload: CategorizePayload
+    ): Response<Map<String, Any>>
+
+    /**
+     * Register device FCM push notification token.
+     */
+    @POST("users/fcm-token")
+    suspend fun registerFcmToken(
+        @Header("Authorization") token: String,
+        @Body payload: FcmTokenPayload
+    ): Response<Map<String, String>>
+
+    /**
+     * Fetch single canonical category list.
+     */
+    @GET("categories")
+    suspend fun getCategories(): Response<CategoriesResponse>
+
+    /**
+     * Partially edit a transaction (category, merchant, amount, date, notes).
+     */
+    @PATCH("transactions/{id}")
+    suspend fun patchTransaction(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int,
+        @Body payload: TransactionUpdatePayload
+    ): Response<TransactionData>
+
+    /**
+     * Delete a transaction.
+     */
+    @retrofit2.http.DELETE("transactions/{id}")
+    suspend fun deleteTransaction(
+        @Header("Authorization") token: String,
+        @Path("id") id: Int
+    ): Response<Map<String, String>>
 
     /**
      * Authenticate user and obtain a JWT access token.
@@ -192,7 +273,8 @@ interface BackendService {
         @Query("month") month: Int? = null,
         @Query("year") year: Int? = null,
         @Query("start_date") startDate: String? = null,
-        @Query("end_date") endDate: String? = null
+        @Query("end_date") endDate: String? = null,
+        @Query("include_transfers") includeTransfers: Boolean? = null
     ): Response<PaginatedTransactionResponse>
 
     /**

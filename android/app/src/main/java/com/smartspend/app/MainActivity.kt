@@ -12,6 +12,7 @@ import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -65,10 +66,9 @@ class MainActivity : ComponentActivity() {
     private var hasScrolledAwayFromTop = false
 
     private val canonicalCategories = listOf(
-        "Food & Dining", "Groceries", "Shopping", "Transportation",
-        "Utilities & Bills", "Entertainment", "Health & Fitness",
-        "Fuel", "Education", "Travel", "Personal Care",
-        "Investments", "Subscriptions", "Salary", "Other"
+        "Food", "Transport", "Shopping", "Entertainment", "Utilities",
+        "Healthcare", "Education", "Travel", "Rent", "Transfer",
+        "Investment", "Salary", "Refund", "Other"
     )
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -112,6 +112,20 @@ class MainActivity : ComponentActivity() {
         val token = sharedPrefs.getString("jwt_token", null)
         if (!token.isNullOrEmpty()) {
             fetchDashboardData()
+            registerFcmTokenIfAvailable(token)
+        }
+    }
+
+    private fun registerFcmTokenIfAvailable(jwtToken: String) {
+        val fcmToken = sharedPrefs.getString("fcm_token", null)
+        if (!fcmToken.isNullOrEmpty()) {
+            lifecycleScope.launch {
+                try {
+                    RetrofitClient.apiService.registerFcmToken("Bearer $jwtToken", FcmTokenPayload(fcmToken))
+                } catch (e: Exception) {
+                    // Suppress
+                }
+            }
         }
     }
 
@@ -512,11 +526,13 @@ class MainActivity : ComponentActivity() {
         val debits = allTransactions.filter { it.type.equals("debit", ignoreCase = true) }
         val credits = allTransactions.filter { it.type.equals("credit", ignoreCase = true) }
 
-        val totalSpent = debits.sumOf { it.amount }
+        val merchantSpent = debits.filter { !it.is_transfer && !it.category.equals("Transfer", ignoreCase = true) }.sumOf { it.amount }
+        val transferSent = debits.filter { it.is_transfer || it.category.equals("Transfer", ignoreCase = true) }.sumOf { it.amount }
+        val totalSpent = merchantSpent + transferSent
         val totalIncome = credits.sumOf { it.amount }
         val netCashFlow = totalIncome - totalSpent
 
-        binding.tvSpentThisMonth.text = "₹%.2f".format(totalSpent)
+        binding.tvSpentThisMonth.text = "₹%.2f (Merchants: ₹%.0f | Transfers: ₹%.0f)".format(totalSpent, merchantSpent, transferSent)
         binding.tvIncomeCredits.text = "₹%.2f".format(totalIncome)
         binding.tvNetCashFlow.text = "₹%.2f".format(netCashFlow)
 
@@ -906,6 +922,115 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun showTransactionActionMenu(tx: TransactionData) {
+        val options = arrayOf("Edit Transaction", "Delete Transaction", "Change Category")
+        AlertDialog.Builder(this)
+            .setTitle(tx.merchant ?: tx.category)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showFullEditTransactionDialog(tx)
+                    1 -> confirmDeleteTransaction(tx)
+                    2 -> showReviewTransactionDialog(tx)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showFullEditTransactionDialog(tx: TransactionData) {
+        val token = sharedPrefs.getString("jwt_token", "") ?: return
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 20, 40, 20)
+        }
+
+        val etMerchant = EditText(this).apply {
+            hint = "Merchant / Payee"
+            setText(tx.merchant ?: "")
+        }
+        val etAmount = EditText(this).apply {
+            hint = "Amount (₹)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText("%.2f".format(tx.amount))
+        }
+
+        val spinnerCategory = Spinner(this)
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, canonicalCategories)
+        spinnerCategory.adapter = adapter
+        val currentIdx = canonicalCategories.indexOf(tx.category).coerceAtLeast(0)
+        spinnerCategory.setSelection(currentIdx)
+
+        layout.addView(TextView(this).apply { text = "Merchant:"; typeface = android.graphics.Typeface.DEFAULT_BOLD })
+        layout.addView(etMerchant)
+        layout.addView(TextView(this).apply { text = "Category:"; typeface = android.graphics.Typeface.DEFAULT_BOLD })
+        layout.addView(spinnerCategory)
+        layout.addView(TextView(this).apply { text = "Amount (₹):"; typeface = android.graphics.Typeface.DEFAULT_BOLD })
+        layout.addView(etAmount)
+
+        AlertDialog.Builder(this)
+            .setTitle("Edit Transaction #${tx.id}")
+            .setView(layout)
+            .setPositiveButton("Save") { _, _ ->
+                val updatedMerchant = etMerchant.text.toString().trim()
+                val updatedCategory = canonicalCategories[spinnerCategory.selectedItemPosition]
+                val updatedAmount = etAmount.text.toString().toDoubleOrNull() ?: tx.amount
+
+                val payload = TransactionUpdatePayload(
+                    merchant = updatedMerchant,
+                    category = updatedCategory,
+                    amount = updatedAmount
+                )
+
+                lifecycleScope.launch {
+                    try {
+                        val resp = RetrofitClient.apiService.patchTransaction("Bearer $token", tx.id, payload)
+                        runOnUiThread {
+                            if (resp.isSuccessful) {
+                                Toast.makeText(this@MainActivity, "Transaction updated! ✅", Toast.LENGTH_SHORT).show()
+                                fetchDashboardData()
+                            } else {
+                                Toast.makeText(this@MainActivity, "Update failed: ${resp.code()}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        runOnUiThread {
+                            Toast.makeText(this@MainActivity, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun confirmDeleteTransaction(tx: TransactionData) {
+        val token = sharedPrefs.getString("jwt_token", "") ?: return
+        AlertDialog.Builder(this)
+            .setTitle("Delete Transaction?")
+            .setMessage("Are you sure you want to permanently delete transaction for ₹${"%.2f".format(tx.amount)}?")
+            .setPositiveButton("Delete") { _, _ ->
+                lifecycleScope.launch {
+                    try {
+                        val resp = RetrofitClient.apiService.deleteTransaction("Bearer $token", tx.id)
+                        runOnUiThread {
+                            if (resp.isSuccessful) {
+                                Toast.makeText(this@MainActivity, "Transaction deleted! 🗑️", Toast.LENGTH_SHORT).show()
+                                fetchDashboardData()
+                            } else {
+                                Toast.makeText(this@MainActivity, "Delete failed: ${resp.code()}", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        runOnUiThread {
+                            Toast.makeText(this@MainActivity, "Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     // ──────────────── Auth ────────────────

@@ -10,9 +10,9 @@ import math
 import re
 from datetime import date, datetime, time, timezone
 from typing import Optional, List, Dict
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from pydantic import BaseModel
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
@@ -22,11 +22,14 @@ from models.budget import BudgetLimit
 from models.merchant_mapping import MerchantMapping
 from schemas.transaction import (
     TransactionCreate,
+    TransactionUpdate,
     TransactionResponse,
     TransactionSummaryResponse,
     PaginatedTransactionResponse,
     CategorySummaryItem,
     MonthlyCategorySummaryResponse,
+    NeedsReviewResponse,
+    CategorizeRequest,
     SMSRequest,
     BatchSMSRequest,
     CorrectionRequest,
@@ -35,6 +38,9 @@ from schemas.sms import SMSIngestionRequest, SMSIngestionResponse
 from utils.sms_parser import parse_sms
 from utils.dependencies import get_current_user
 from utils.fingerprint import generate_fingerprint
+from utils.categories import CATEGORIES
+from utils.transfer_detector import detect_p2p_transfer
+from utils.notifications import check_budget_and_alert
 from categorizer.transaction_categorizer import (
     categorize_transaction,
     process_upi_sms,
@@ -118,23 +124,33 @@ async def create_transaction(
             detail="Transaction already exists (duplicate detected by fingerprint).",
         )
 
+    # P2P Transfer detection
+    is_tx_transfer, recipient = detect_p2p_transfer(tx_in.merchant, raw_sms=None, category=tx_in.category)
+    final_cat = "Transfer" if is_tx_transfer else tx_in.category
+
     # Instantiate model
     new_tx = Transaction(
         user_id=current_user.id,
         amount=tx_in.amount,
         type=tx_in.type.lower(),
-        category=tx_in.category,
+        category=final_cat,
         merchant=tx_in.merchant,
         bank=tx_in.bank,
         account_last4=tx_in.account_last4,
         date=tx_in.date,
         hash_fingerprint=fingerprint,
         source=tx_in.source.lower(),
+        is_transfer=is_tx_transfer,
+        transfer_to=recipient,
+        notes=tx_in.notes,
     )
 
     db.add(new_tx)
     await db.flush()
-    
+
+    if new_tx.type == "debit":
+        await check_budget_and_alert(db, current_user.id, new_tx.category, float(new_tx.amount))
+
     return new_tx
 
 
@@ -192,6 +208,21 @@ async def get_monthly_category_summary(
     debits = list(debits_res.scalars().all())
 
     total_spent = round(sum(t.amount for t in debits), 2)
+    merchant_spent = round(sum(t.amount for t in debits if not t.is_transfer), 2)
+    transfer_sent = round(sum(t.amount for t in debits if t.is_transfer), 2)
+
+    # Credits for transfer_received calculation
+    credits_query = select(Transaction).where(
+        and_(
+            Transaction.user_id == current_user.id,
+            Transaction.type == "credit",
+            Transaction.date >= start_dt,
+            Transaction.date <= end_dt,
+            Transaction.is_transfer == True
+        )
+    )
+    credits_res = await db.execute(credits_query)
+    transfer_received = round(sum(t.amount for t in credits_res.scalars().all()), 2)
 
     # 4. Fetch previous month total spent
     prev_query = select(func.coalesce(func.sum(Transaction.amount), 0.0)).where(
@@ -262,6 +293,9 @@ async def get_monthly_category_summary(
         month=month,
         year=year,
         total_spent=total_spent,
+        merchant_spent=merchant_spent,
+        transfer_sent=transfer_sent,
+        transfer_received=transfer_received,
         categories=categories_summary,
         previous_month_total=previous_month_total,
         month_over_month_change=mom_change,
@@ -283,6 +317,7 @@ async def list_transactions(
     category: Optional[str] = Query(None, description="Filter transactions by category"),
     type: Optional[str] = Query(None, description="Filter by transaction type ('debit' or 'credit')"),
     review_status: Optional[str] = Query(None, description="Filter by review status ('needs_review', 'reviewed', 'auto_categorized')"),
+    include_transfers: bool = Query(True, description="If false, excludes P2P transfer transactions."),
     user_id: Optional[int] = Query(None, description="Filter by user ID (admin/family group access only)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -301,6 +336,7 @@ async def list_transactions(
         category (Optional[str]): Category filter.
         type (Optional[str]): Filter by type ('debit' or 'credit').
         review_status (Optional[str]): Review status filter.
+        include_transfers (bool): Include or exclude P2P transfers.
         user_id (Optional[int]): Query for another user's transactions (family group only).
         current_user (User): Authenticated user.
         db (AsyncSession): Database session.
@@ -329,6 +365,9 @@ async def list_transactions(
         query_target_user_id = user_id
 
     conditions = [Transaction.user_id == query_target_user_id]
+
+    if not include_transfers:
+        conditions.append(Transaction.is_transfer == False)
 
     # Date range & Month/Year filters
     if month is not None and year is not None:
@@ -497,6 +536,11 @@ async def ingest_sms(
     if tx_date.tzinfo is None:
         tx_date = tx_date.replace(tzinfo=timezone.utc)
 
+    # P2P Transfer detection
+    is_tx_transfer, recipient = detect_p2p_transfer(merchant, raw_sms=sms_in.raw_sms, category=category)
+    if is_tx_transfer:
+        category = "Transfer"
+
     # Save transaction to database
     new_tx = Transaction(
         user_id=current_user.id,
@@ -513,10 +557,15 @@ async def ingest_sms(
         source=source,
         confidence=confidence,
         review_status=review_status,
+        is_transfer=is_tx_transfer,
+        transfer_to=recipient,
     )
 
     db.add(new_tx)
     await db.flush()
+
+    if new_tx.type == "debit":
+        await check_budget_and_alert(db, current_user.id, new_tx.category, float(new_tx.amount))
 
     return SMSIngestionResponse(
         success=True,
@@ -814,4 +863,189 @@ async def update_transaction_fields(
     await db.commit()
     await db.refresh(transaction)
     return transaction
+
+
+@router.patch("/{transaction_id}", response_model=TransactionResponse, summary="Edit a transaction")
+async def edit_transaction(
+    transaction_id: int,
+    updates: TransactionUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Transaction:
+    """
+    Partially edit an existing transaction owned by the current user.
+    Editable fields: category, merchant, amount, date, notes.
+    """
+    res = await db.execute(select(Transaction).where(Transaction.id == transaction_id))
+    transaction = res.scalars().first()
+
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found"
+        )
+
+    if transaction.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to edit this transaction"
+        )
+
+    if updates.category is not None:
+        transaction.category = updates.category
+    if updates.merchant is not None:
+        transaction.merchant = updates.merchant
+    if updates.amount is not None:
+        transaction.amount = updates.amount
+    if updates.date is not None:
+        transaction.date = updates.date
+    if updates.notes is not None:
+        transaction.notes = updates.notes
+
+    await db.commit()
+    await db.refresh(transaction)
+    return transaction
+
+
+@router.delete("/{transaction_id}", summary="Delete a transaction")
+async def delete_transaction(
+    transaction_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """
+    Hard delete a transaction owned by the current user.
+    """
+    res = await db.execute(select(Transaction).where(Transaction.id == transaction_id))
+    transaction = res.scalars().first()
+
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found"
+        )
+
+    if transaction.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this transaction"
+        )
+
+    await db.delete(transaction)
+    await db.commit()
+    return {"message": "Transaction deleted successfully"}
+
+
+@router.get(
+    "/needs-review",
+    response_model=NeedsReviewResponse,
+    summary="Get unreviewed transactions needing user categorization"
+)
+async def get_needs_review_transactions(
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Fetch all transactions for current user where category is 'Other'
+    or review_status is 'needs_review'. Returns count in X-Needs-Review-Count header.
+    """
+    query = select(Transaction).where(
+        and_(
+            Transaction.user_id == current_user.id,
+            or_(
+                func.lower(Transaction.category) == "other",
+                Transaction.review_status == "needs_review"
+            )
+        )
+    ).order_by(Transaction.created_at.desc())
+
+    result = await db.execute(query)
+    unreviewed = result.scalars().all()
+    count = len(unreviewed)
+
+    response.headers["X-Needs-Review-Count"] = str(count)
+
+    return NeedsReviewResponse(
+        count=count,
+        transactions=unreviewed,
+        message=f"Fix these {count} transactions to improve accuracy" if count > 0 else "All done for today! 🎉"
+    )
+
+
+@router.patch(
+    "/{transaction_id}/categorize",
+    summary="1-click categorize transaction & learn merchant mapping"
+)
+async def categorize_transaction_item(
+    transaction_id: int,
+    payload: CategorizeRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Updates transaction category, marks review_status as 'reviewed',
+    and optionally saves merchant_alias mapping to merchant_mappings table for automatic learning.
+    """
+    res = await db.execute(select(Transaction).where(Transaction.id == transaction_id))
+    transaction = res.scalars().first()
+
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found"
+        )
+
+    if transaction.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to edit this transaction"
+        )
+
+    # Validate category against canonical list
+    cat_match = next((c for c in CATEGORIES if c.lower() == payload.category.lower()), None)
+    if not cat_match:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid category '{payload.category}'. Must be one of {CATEGORIES}"
+        )
+
+    transaction.category = cat_match
+    transaction.review_status = "reviewed"
+
+    learned = False
+    target_alias = (payload.merchant_alias or transaction.merchant or "").strip()
+    if target_alias:
+        # Check existing mapping
+        m_query = select(MerchantMapping).where(
+            and_(
+                MerchantMapping.user_id == current_user.id,
+                func.lower(MerchantMapping.merchant_key) == target_alias.lower()
+            )
+        )
+        m_res = await db.execute(m_query)
+        existing_map = m_res.scalars().first()
+
+        if existing_map:
+            existing_map.category = cat_match
+            existing_map.count += 1
+        else:
+            new_map = MerchantMapping(
+                user_id=current_user.id,
+                merchant_key=target_alias.lower(),
+                category=cat_match,
+                display_name=target_alias.title()
+            )
+            db.add(new_map)
+        learned = True
+
+    await db.commit()
+    await db.refresh(transaction)
+
+    # Check budget alert threshold
+    if transaction.type == "debit":
+        await check_budget_and_alert(db, current_user.id, transaction.category, float(transaction.amount))
+
+    return {"updated": True, "learned": learned, "category": cat_match}
+
 

@@ -22,7 +22,8 @@ sealed class TxListItem {
  * RecyclerView adapter with DiffUtil, day headers, and latest-first rows.
  */
 class TransactionAdapter(
-    private val onItemClick: (TransactionData) -> Unit = {}
+    private val onItemClick: (TransactionData) -> Unit = {},
+    private val onItemLongClick: (TransactionData) -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     private var items: List<TxListItem> = emptyList()
@@ -47,7 +48,8 @@ class TransactionAdapter(
         } else {
             TransactionViewHolder(
                 ItemTransactionCardBinding.inflate(inflater, parent, false),
-                onItemClick
+                onItemClick,
+                onItemLongClick
             )
         }
     }
@@ -71,19 +73,29 @@ class TransactionAdapter(
 
     class TransactionViewHolder(
         private val binding: ItemTransactionCardBinding,
-        private val onItemClick: (TransactionData) -> Unit
+        private val onItemClick: (TransactionData) -> Unit,
+        private val onItemLongClick: (TransactionData) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(tx: TransactionData) {
             binding.root.setOnClickListener { onItemClick(tx) }
-            val merchantName = tx.merchant?.takeIf { it.isNotBlank() } ?: tx.category
+            binding.root.setOnLongClickListener {
+                onItemLongClick(tx)
+                true
+            }
+            val isTransfer = tx.is_transfer || tx.category.equals("Transfer", ignoreCase = true)
+            val merchantName = if (isTransfer && !tx.transfer_to.isNullOrBlank()) {
+                "Transfer to ${tx.transfer_to}"
+            } else {
+                tx.merchant?.takeIf { it.isNotBlank() } ?: tx.category
+            }
             binding.tvMerchantName.text = merchantName
 
             val bankStr = tx.bank?.uppercase(Locale.ROOT) ?: "BANK"
             val acctStr = if (!tx.account_last4.isNullOrEmpty()) "XX${tx.account_last4}" else ""
             binding.tvSubtitle.text = "${tx.category} · $bankStr · $acctStr".trim(' ', '·')
 
-            binding.tvCategoryIcon.text = categoryEmoji(tx.category)
+            binding.tvCategoryIcon.text = if (isTransfer) "👤" else categoryEmoji(tx.category)
 
             val justNow = DateUtils.isJustNow(tx)
             if (justNow) {

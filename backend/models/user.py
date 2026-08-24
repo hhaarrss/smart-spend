@@ -32,6 +32,7 @@ class User(Base):
     family_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("family_groups.id", ondelete="SET NULL"), nullable=True
     )
+    fcm_token: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
