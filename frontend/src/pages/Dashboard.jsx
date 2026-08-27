@@ -422,18 +422,29 @@ const Dashboard = () => {
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIncludeTransfers(!includeTransfers)}
-          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold text-xs border transition-all cursor-pointer ${
-            includeTransfers
-              ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-              : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
-          }`}
-        >
-          <span>Include Transfers</span>
-          <span className={`w-2.5 h-2.5 rounded-full ${includeTransfers ? 'bg-emerald-400' : 'bg-slate-400'}`}></span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={openNeedsReviewModal}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition-all cursor-pointer shadow-xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            <span>Needs Review {needsReviewCount > 0 ? `(${needsReviewCount})` : ''}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIncludeTransfers(!includeTransfers)}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold text-xs border transition-all cursor-pointer ${
+              includeTransfers
+                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+            }`}
+          >
+            <span>Include Transfers</span>
+            <span className={`w-2.5 h-2.5 rounded-full ${includeTransfers ? 'bg-emerald-400' : 'bg-slate-400'}`}></span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

@@ -1,14 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
-import { useCategories } from '../context/CategoryContext';
-import { transactionService } from '../services/api';
+import { categoryService, transactionService } from '../services/api';
+
+const DEFAULT_CATEGORIES = [
+  'Food', 'Transport', 'Shopping', 'Entertainment', 'Utilities',
+  'Healthcare', 'Education', 'Travel', 'Rent', 'Transfer',
+  'Investment', 'Salary', 'Refund', 'Other'
+];
 
 export default function NeedsReviewModal({ isOpen, onClose, transactions, onFinished }) {
-  const { categories } = useCategories();
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [reviewedCount, setReviewedCount] = useState(0);
   const [learnedCount, setLearnedCount] = useState(0);
+
+  useEffect(() => {
+    categoryService.getCategories()
+      .then(res => {
+        const cats = res?.categories || res;
+        if (Array.isArray(cats)) setCategories(cats);
+      })
+      .catch(() => {});
+  }, []);
 
   if (!isOpen || !transactions || transactions.length === 0) return null;
 
