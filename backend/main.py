@@ -152,8 +152,13 @@ async def on_startup() -> None:
         from sqlalchemy import select
 
         async with engine.begin() as conn:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR(500);"))
+            await conn.execute(text("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_transfer BOOLEAN DEFAULT FALSE;"))
+            await conn.execute(text("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS transfer_to VARCHAR(255);"))
+            await conn.execute(text("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS notes TEXT;"))
             await conn.run_sync(Base.metadata.create_all)
-        print("Database connection successfully established and tables verified.")
+        print("Database connection successfully established, schema migrated, and tables verified.")
 
         async with AsyncSessionLocal() as db:
             res = await db.execute(select(User).where(User.email == "your1_email@example.com"))
