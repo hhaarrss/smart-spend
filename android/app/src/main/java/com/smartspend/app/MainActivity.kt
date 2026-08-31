@@ -481,6 +481,7 @@ class MainActivity : ComponentActivity() {
                     renderDonutChartAndLegend()
                     updateBudgetWarningHeader()
                 }
+                checkNeedsReviewBanner(authHeader)
             } catch (e: Exception) {
                 runOnUiThread {
                     Toast.makeText(this@MainActivity, "Refresh Error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
@@ -877,6 +878,57 @@ class MainActivity : ComponentActivity() {
                 }
             }
             .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun checkNeedsReviewBanner(authHeader: String) {
+        lifecycleScope.launch {
+            try {
+                val resp = RetrofitClient.apiService.getNeedsReviewTransactions(authHeader)
+                if (resp.isSuccessful && resp.body() != null) {
+                    val body = resp.body()!!
+                    val unreviewedList = body.transactions
+                    val count = body.count
+                    runOnUiThread {
+                        if (count > 0) {
+                            binding.cardNeedsReviewBanner.visibility = View.VISIBLE
+                            binding.tvNeedsReviewTitle.text = "Needs Review: $count Transactions"
+                            binding.cardNeedsReviewBanner.setOnClickListener {
+                                startNeedsReviewLoop(unreviewedList)
+                            }
+                        } else {
+                            binding.cardNeedsReviewBanner.visibility = View.GONE
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Suppress
+            }
+        }
+    }
+
+    private fun startNeedsReviewLoop(unreviewed: List<TransactionData>, currentIndex: Int = 0) {
+        if (currentIndex >= unreviewed.size) {
+            Toast.makeText(this, "All done! SmartSpend learned your transaction rules 🎉", Toast.LENGTH_LONG).show()
+            fetchDashboardData()
+            return
+        }
+        val tx = unreviewed[currentIndex]
+        val items = canonicalCategories.toTypedArray()
+        val currentIdx = canonicalCategories.indexOf(tx.category).coerceAtLeast(0)
+
+        val merchantStr = tx.merchant?.takeIf { it.isNotBlank() } ?: tx.category
+        AlertDialog.Builder(this)
+            .setTitle("Needs Review (${currentIndex + 1}/${unreviewed.size}): $merchantStr (₹${"%.2f".format(tx.amount)})")
+            .setSingleChoiceItems(items, currentIdx) { dialog, which ->
+                val newCategory = items[which]
+                performUpdateCategory(tx, newCategory)
+                dialog.dismiss()
+                startNeedsReviewLoop(unreviewed, currentIndex + 1)
+            }
+            .setNegativeButton("Skip", { _, _ ->
+                startNeedsReviewLoop(unreviewed, currentIndex + 1)
+            })
             .show()
     }
 
