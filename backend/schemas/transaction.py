@@ -154,6 +154,16 @@ class NeedsReviewResponse(BaseModel):
 class CategorizeRequest(BaseModel):
     """Schema for 1-click categorization request."""
 
-    category: str = Field(..., max_length=100, description="Target canonical category.")
+    category: Optional[str] = Field(None, max_length=100, description="Target canonical category.")
+    new_category: Optional[str] = Field(None, max_length=100, description="Alternative field for target category.")
     merchant_alias: Optional[str] = Field(None, description="Optional merchant/VPA name to map to this category for future transactions.")
+    merchant_raw: Optional[str] = Field(None, description="Alternative field for merchant name.")
+
+    @property
+    def target_category(self) -> str:
+        return self.category or self.new_category or "Other"
+
+    @property
+    def target_merchant(self) -> Optional[str]:
+        return self.merchant_alias or self.merchant_raw
 

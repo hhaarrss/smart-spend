@@ -977,6 +977,10 @@ async def get_needs_review_transactions(
     "/{transaction_id}/categorize",
     summary="1-click categorize transaction & learn merchant mapping"
 )
+@router.patch(
+    "/{transaction_id}/recategorize",
+    summary="Re-categorize transaction alias endpoint"
+)
 async def categorize_transaction_item(
     transaction_id: int,
     payload: CategorizeRequest,
@@ -1002,19 +1006,20 @@ async def categorize_transaction_item(
             detail="Not authorized to edit this transaction"
         )
 
+    req_category = payload.target_category
     # Validate category against canonical list
-    cat_match = next((c for c in CATEGORIES if c.lower() == payload.category.lower()), None)
+    cat_match = next((c for c in CATEGORIES if c.lower() == req_category.lower()), None)
     if not cat_match:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid category '{payload.category}'. Must be one of {CATEGORIES}"
+            detail=f"Invalid category '{req_category}'. Must be one of {CATEGORIES}"
         )
 
     transaction.category = cat_match
     transaction.review_status = "reviewed"
 
     learned = False
-    target_alias = (payload.merchant_alias or transaction.merchant or "").strip()
+    target_alias = (payload.target_merchant or transaction.merchant or "").strip()
     if target_alias:
         # Check existing mapping
         m_query = select(MerchantMapping).where(
