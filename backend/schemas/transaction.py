@@ -99,9 +99,9 @@ class BatchSMSRequest(BaseModel):
 
 class CorrectionRequest(BaseModel):
     """Schema for transaction re-categorization correction requests."""
-    transaction_id: int = Field(..., description="Target transaction ID.")
-    merchant_raw: str = Field(..., description="Raw merchant name to correct future categorizations.")
-    new_category: str = Field(..., description="Corrected category name.")
+    transaction_id: Optional[int] = Field(None, description="Target transaction ID.")
+    merchant_raw: Optional[str] = Field(None, description="Raw merchant name to correct future categorizations.")
+    new_category: Optional[str] = Field(None, description="Corrected category name.")
     subcategory: Optional[str] = Field(None, description="Optional corrected subcategory.")
     display_name: Optional[str] = Field(None, description="Optional clean merchant name.")
 
