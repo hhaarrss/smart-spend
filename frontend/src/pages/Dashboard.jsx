@@ -368,7 +368,7 @@ const Dashboard = () => {
   const visibleTransactions = sortedFiltered.slice(0, visibleCount);
   const remainingCount = Math.max(sortedFiltered.length - visibleCount, 0);
 
-  const categoryRows = [...(categorySummary?.categories || [])].sort((a, b) => b.total - a.total);
+
 
   if (loading) {
     return (

@@ -102,13 +102,47 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
     sms = " ".join(raw_sms.split())
     sms_lower = sms.lower()
 
+    # 0. Reject marketing, promotional, OTP, loan offers, and mandate requests
+    spam_patterns = [
+        r"save\s+(?:rs\.?|inr|₹)",
+        r"earn\s+up\s+to",
+        r"cashback\s+every",
+        r"apply\s+now",
+        r"pre-approved",
+        r"pre\s+approved",
+        r"loan\s+offer",
+        r"get\s+(?:flat|up\s+to)\s+(?:rs\.?|inr|₹|\d+%)",
+        r"win\s+up\s+to",
+        r"lifetime\s+free",
+        r"at\s+no\s+extra\s+charge",
+        r"play\s+\d+\+\s+games",
+        r"pro\s+pass",
+        r"voucher",
+        r"coupon\s+code",
+        r"promo\s+code",
+        r"discount\s+on",
+        r"mandate\s+collect\s+request",
+        r"request\s+for\s+blocking\s+of\s+funds",
+        r"otp\s+is",
+        r"verification\s+code",
+        r"do\s+not\s+share\s+(?:this\s+)?otp",
+        r"claim\s+now",
+        r"offer\s+ends",
+        r"congratulations",
+        r"credit\s+card\s+limit",
+        r"personal\s+loan"
+    ]
+    for pat in spam_patterns:
+        if re.search(pat, sms_lower):
+            return None
+
     # Determine debit vs credit
     debit_keywords = [
-        "debited", "spent", "paid", "withdrawn", "payment", "charge",
-        "withdrew", "txn to", "used for", "used at", "transaction of", "used", "sent to", "transfer to"
+        "debited", "spent", "paid", "withdrawn", "payment of", "charge",
+        "withdrew", "txn to", "used for", "used at", "transaction of", "sent to", "transfer to"
     ]
     credit_keywords = [
-        "credited", "received", "deposited", "added", "refund", "salary", "cashback"
+        "credited", "deposited", "received from", "received rs", "credited with", "refund of"
     ]
 
     is_debit = any(kw in sms_lower for kw in debit_keywords)

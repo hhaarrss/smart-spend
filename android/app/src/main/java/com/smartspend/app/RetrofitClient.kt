@@ -5,6 +5,7 @@ package com.smartspend.app
  * Dynamically retrieves configured service instance.
  */
 object RetrofitClient {
-    val apiService: BackendService
-        get() = BackendService.create()
+    val apiService: BackendService by lazy {
+        BackendService.create()
+    }
 }

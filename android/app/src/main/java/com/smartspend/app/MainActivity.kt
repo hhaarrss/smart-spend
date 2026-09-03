@@ -28,6 +28,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import android.provider.Telephony
 import android.widget.NumberPicker
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -45,6 +51,8 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var sharedPrefs: SharedPreferences
+    private lateinit var auth: FirebaseAuth
+    private lateinit var googleSignInClient: GoogleSignInClient
 
     private lateinit var transactionAdapter: TransactionAdapter
     private lateinit var budgetAdapter: BudgetAdapter
@@ -89,10 +97,58 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Handles result from Google Sign-In intent. */
+    private val googleSignInLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(ApiException::class.java)
+            val idToken = account.idToken
+            if (!idToken.isNullOrEmpty()) {
+                firebaseAuthWithGoogle(idToken)
+            } else {
+                val email = account.email ?: "google_user@smartspend.app"
+                val displayName = account.displayName ?: email.substringBefore("@")
+                sharedPrefs.edit()
+                    .putString("jwt_token", "google_${account.id ?: email.hashCode()}")
+                    .putString("user_email", email)
+                    .apply()
+                Toast.makeText(this, "Welcome, $displayName! 👋", Toast.LENGTH_SHORT).show()
+                showDashboard()
+            }
+        } catch (e: ApiException) {
+            val errorMsg = when (e.statusCode) {
+                10 -> "Google Sign-In configuration error (Code 10: SHA-1 fingerprint needs to be added in Firebase Console)."
+                12500 -> "Sign in failed (Code 12500: Google Play Services issue or unlinked OAuth client)."
+                12501 -> "Sign-in was cancelled."
+                else -> "Google Sign-In failed (Code ${e.statusCode}): ${e.localizedMessage ?: "Unknown error"}"
+            }
+            if (e.statusCode == 10) {
+                AlertDialog.Builder(this)
+                    .setTitle("Google Sign-In Setup Required")
+                    .setMessage("Error 10 indicates that your Android app's debug SHA-1 fingerprint has not been registered in the Firebase Console yet.\n\nPlease add your SHA-1 to Firebase Project Settings -> Android App.")
+                    .setPositiveButton("OK", null)
+                    .show()
+            } else if (e.statusCode != 12501) {
+                Toast.makeText(this, errorMsg, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        auth = FirebaseAuth.getInstance()
+        val webClientId = getString(R.string.default_web_client_id)
+        val gsoBuilder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+        if (webClientId.isNotBlank() && !webClientId.contains("placeholder")) {
+            gsoBuilder.requestIdToken(webClientId)
+        }
+        googleSignInClient = GoogleSignIn.getClient(this, gsoBuilder.build())
 
         sharedPrefs = getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
         sharedPrefs.registerOnSharedPreferenceChangeListener(prefsListener)
@@ -155,7 +211,10 @@ class MainActivity : ComponentActivity() {
         binding.navAdd.setOnClickListener { switchScreen(1) }
         binding.navBudget.setOnClickListener { switchScreen(2) }
         binding.navInsights.setOnClickListener { switchScreen(3) }
+        binding.navProfile.setOnClickListener { switchScreen(4) }
+        binding.btnProfileHeader.setOnClickListener { switchScreen(4) }
         binding.btnRefreshInsights.setOnClickListener { fetchInsightsData() }
+        binding.btnLogoutProfile.setOnClickListener { showLogoutConfirmationDialog() }
     }
 
     private fun switchScreen(screenIndex: Int) {
@@ -166,16 +225,20 @@ class MainActivity : ComponentActivity() {
         binding.tvNavAdd.setTextColor(if (screenIndex == 1) activeColor else inactiveColor)
         binding.tvNavBudget.setTextColor(if (screenIndex == 2) activeColor else inactiveColor)
         binding.tvNavInsights.setTextColor(if (screenIndex == 3) activeColor else inactiveColor)
+        binding.tvNavProfile.setTextColor(if (screenIndex == 4) activeColor else inactiveColor)
 
         binding.screenHome.visibility = if (screenIndex == 0) View.VISIBLE else View.GONE
         binding.screenAddTransaction.visibility = if (screenIndex == 1) View.VISIBLE else View.GONE
         binding.screenBudget.visibility = if (screenIndex == 2) View.VISIBLE else View.GONE
         binding.screenInsights.visibility = if (screenIndex == 3) View.VISIBLE else View.GONE
+        binding.screenProfile.visibility = if (screenIndex == 4) View.VISIBLE else View.GONE
 
         if (screenIndex == 0 || screenIndex == 2) {
             fetchDashboardData()
         } else if (screenIndex == 3) {
             fetchInsightsData()
+        } else if (screenIndex == 4) {
+            renderProfileDetails()
         }
     }
 
@@ -350,6 +413,7 @@ class MainActivity : ComponentActivity() {
 
     private fun setupListeners() {
         binding.btnLogin.setOnClickListener { performLogin() }
+        binding.btnGoogleSignIn.setOnClickListener { launchGoogleSignIn() }
     }
 
     private fun setFilterMode(mode: String) {
@@ -1085,40 +1149,149 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
-    // ──────────────── Auth ────────────────
+    // ──────────────── Auth & Profile ────────────────
+
+    private fun launchGoogleSignIn() {
+        val signInIntent = googleSignInClient.signInIntent
+        googleSignInLauncher.launch(signInIntent)
+    }
+
+    private fun firebaseAuthWithGoogle(idToken: String) {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        binding.btnGoogleSignIn.isClickable = false
+        auth.signInWithCredential(credential)
+            .addOnCompleteListener(this) { task ->
+                binding.btnGoogleSignIn.isClickable = true
+                if (task.isSuccessful) {
+                    val fbUser = auth.currentUser
+                    val email = fbUser?.email ?: "google_user@smartspend.app"
+                    val displayName = fbUser?.displayName ?: email.substringBefore("@")
+                    sharedPrefs.edit()
+                        .putString("jwt_token", "google_${fbUser?.uid}")
+                        .putString("user_email", email)
+                        .apply()
+                    Toast.makeText(this, "Welcome, $displayName! 👋", Toast.LENGTH_SHORT).show()
+                    showDashboard()
+                } else {
+                    Toast.makeText(this, "Google Sign-In failed: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+    }
 
     private fun performLogin() {
         val email = binding.etEmail.text.toString().trim()
         val password = binding.etPassword.text.toString().trim()
 
         if (email.isEmpty() || password.isEmpty()) {
+            Toast.makeText(this, "Please enter email and password", Toast.LENGTH_SHORT).show()
             return
         }
 
+        binding.btnLogin.isEnabled = false
+        binding.btnLogin.text = "Signing in..."
+
         lifecycleScope.launch {
             try {
+                // 1. Authenticate with backend API for JWT
                 val resp = RetrofitClient.apiService.login(email, password)
-                runOnUiThread {
-                    if (resp.isSuccessful && resp.body() != null) {
-                        sharedPrefs.edit()
-                            .putString("jwt_token", resp.body()!!.access_token)
-                            .putString("user_email", email)
-                            .apply()
+                if (resp.isSuccessful && resp.body() != null) {
+                    val token = resp.body()!!.access_token
+                    sharedPrefs.edit()
+                        .putString("jwt_token", token)
+                        .putString("user_email", email)
+                        .apply()
+
+                    // 2. Synchronize with Firebase Auth
+                    try {
+                        auth.signInWithEmailAndPassword(email, password)
+                            .addOnCompleteListener { fbTask ->
+                                if (!fbTask.isSuccessful) {
+                                    auth.createUserWithEmailAndPassword(email, password)
+                                }
+                            }
+                    } catch (fbEx: Exception) {
+                        // Suppress Firebase sync errors
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        binding.btnLogin.isEnabled = true
+                        binding.btnLogin.text = "Sign In"
+                        Toast.makeText(this@MainActivity, "Welcome back, $email! 👋", Toast.LENGTH_SHORT).show()
                         showDashboard()
-                    } else {
-                        Toast.makeText(this@MainActivity, "Login failed: ${resp.code()}", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        binding.btnLogin.isEnabled = true
+                        binding.btnLogin.text = "Sign In"
+                        Toast.makeText(this@MainActivity, "Login failed: ${resp.code()} (Invalid credentials)", Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
-                runOnUiThread {
+                withContext(Dispatchers.Main) {
+                    binding.btnLogin.isEnabled = true
+                    binding.btnLogin.text = "Sign In"
                     Toast.makeText(this@MainActivity, "Connection error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
+    private fun renderProfileDetails() {
+        val userEmail = sharedPrefs.getString("user_email", "user@example.com") ?: "user@example.com"
+        val fbUser = auth.currentUser
+
+        binding.tvProfileEmail.text = fbUser?.email ?: userEmail
+        val derivedName = fbUser?.displayName?.takeIf { it.isNotBlank() }
+            ?: userEmail.substringBefore("@").replace(".", " ").replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+        binding.tvProfileDisplayName.text = derivedName
+
+        val initial = if (derivedName.isNotBlank()) derivedName.take(1).uppercase() else "👤"
+        binding.tvProfileAvatarLarge.text = initial
+        binding.tvProfileAvatarInitial.text = initial
+
+        val uid = fbUser?.uid ?: ("UID-" + userEmail.hashCode().toString().takeLast(8))
+        binding.tvProfileFirebaseUid.text = if (uid.length > 16) uid.take(16) + "..." else uid
+        binding.tvProfileAuthProvider.text = if (fbUser != null) "Firebase Auth" else "Firebase / JWT"
+
+        val totalSynced = sharedPrefs.getInt("total_synced", allTransactions.size)
+        binding.tvProfileTotalSyncedCount.text = "$totalSynced Transactions"
+
+        val fcmToken = sharedPrefs.getString("fcm_token", null)
+        binding.tvProfileFcmTokenStatus.text = if (!fcmToken.isNullOrEmpty()) "Connected 🔔" else "Registered"
+    }
+
+    private fun showLogoutConfirmationDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Sign Out")
+            .setMessage("Are you sure you want to sign out of SmartSpend?")
+            .setPositiveButton("Sign Out") { _, _ ->
+                performLogout()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun performLogout() {
+        try {
+            auth.signOut()
+            googleSignInClient.signOut()
+        } catch (e: Exception) {
+            // Suppress
+        }
+        sharedPrefs.edit()
+            .remove("jwt_token")
+            .remove("user_email")
+            .apply()
+
+        Toast.makeText(this, "Logged out successfully ✅", Toast.LENGTH_SHORT).show()
+        showLogin()
+    }
+
     private fun updateSyncHubStats() {
-        binding.tvUserEmail.text = sharedPrefs.getString("user_email", "—")
+        val userEmail = sharedPrefs.getString("user_email", "—") ?: "—"
+        binding.tvUserEmail.text = userEmail
+        val initial = if (userEmail.isNotBlank() && userEmail != "—") userEmail.take(1).uppercase() else "👤"
+        binding.tvProfileAvatarInitial.text = initial
     }
 
     private fun checkPermissions() {

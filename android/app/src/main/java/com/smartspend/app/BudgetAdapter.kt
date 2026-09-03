@@ -49,17 +49,25 @@ class BudgetAdapter(
             binding.tvCategoryName.text = budget.category
             binding.tvCategoryIcon.text = getCategoryIcon(budget.category)
 
-            val spent = spendingMap[budget.category] ?: 0.0
+            val spent = getSpentForCategory(budget.category, spendingMap)
             val limit = budget.monthly_limit
             val percent = if (limit > 0) ((spent / limit) * 100).toInt() else 0
 
             binding.tvSpentAmount.text = "₹%.2f".format(spent)
-            binding.tvLimitAmount.text = "₹%.2f".format(limit)
+            binding.tvLimitAmount.text = if (limit > 0) {
+                "₹%.2f".format(limit)
+            } else {
+                "Not set"
+            }
 
             binding.pbBudgetProgress.progress = percent.coerceAtMost(100)
-            binding.tvPercentUsed.text = "$percent% used"
+            binding.tvPercentUsed.text = if (limit > 0) "$percent% used" else "Set a monthly limit"
 
-            if (percent >= 100) {
+            if (limit <= 0) {
+                binding.tvStatusBadge.visibility = View.GONE
+                binding.tvPercentUsed.setTextColor(Color.parseColor("#94A3B8"))
+                binding.boxExceededAlert.visibility = View.GONE
+            } else if (percent >= 100) {
                 binding.tvStatusBadge.visibility = View.VISIBLE
                 binding.tvStatusBadge.text = "Over limit"
                 binding.tvStatusBadge.setTextColor(Color.parseColor("#EF4444"))
@@ -80,24 +88,51 @@ class BudgetAdapter(
                 binding.boxExceededAlert.visibility = View.GONE
             }
 
+            binding.btnEditLimit.text = if (limit > 0) "Edit limit" else "Set limit"
+
             binding.btnEditLimit.setOnClickListener {
+                onEditClick(budget)
+            }
+            binding.root.setOnClickListener {
                 onEditClick(budget)
             }
         }
 
         private fun getCategoryIcon(category: String): String {
             return when (category.lowercase()) {
-                "food & dining", "food and dining" -> "🍴"
+                "food", "food & dining", "food and dining" -> "🍴"
                 "groceries" -> "🛍️"
-                "transportation" -> "🚗"
+                "transport", "transportation" -> "🚗"
                 "shopping" -> "🛍️"
                 "utilities & bills", "utilities" -> "⚡"
                 "entertainment" -> "🎬"
                 "education" -> "📚"
+                "travel" -> "✈️"
+                "rent" -> "🏠"
+                "investment" -> "📈"
+                "refund" -> "↩"
+                "transfer" -> "⇄"
                 "fuel" -> "⛽"
-                "health & fitness" -> "💊"
+                "healthcare", "health & fitness" -> "💊"
                 "salary" -> "💰"
                 else -> "💳"
+            }
+        }
+
+        private fun getSpentForCategory(category: String, spendingMap: Map<String, Double>): Double {
+            val target = normalizeCategory(category)
+            return spendingMap.entries
+                .filter { normalizeCategory(it.key) == target }
+                .sumOf { it.value }
+        }
+
+        private fun normalizeCategory(category: String): String {
+            return when (category.trim().lowercase()) {
+                "food & dining", "food and dining", "groceries" -> "food"
+                "transportation" -> "transport"
+                "utilities & bills", "bills" -> "utilities"
+                "health & fitness", "health" -> "healthcare"
+                else -> category.trim().lowercase()
             }
         }
     }

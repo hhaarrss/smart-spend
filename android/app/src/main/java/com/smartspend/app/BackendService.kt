@@ -6,6 +6,8 @@ import com.google.gson.JsonDeserializer
 import com.google.gson.JsonElement
 import com.google.gson.reflect.TypeToken
 import java.lang.reflect.Type
+import java.util.concurrent.TimeUnit
+import okhttp3.OkHttpClient
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -344,15 +346,23 @@ interface BackendService {
         private const val BASE_URL = "https://expense-tracker-pk4d.onrender.com/"
 
         /**
-         * Creates a configured Retrofit BackendService instance.
+         * Creates a configured Retrofit BackendService instance with resilient timeouts.
          */
         fun create(): BackendService {
+            val okHttpClient = OkHttpClient.Builder()
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
+                .build()
+
             val gson = GsonBuilder()
                 .registerTypeAdapter(PaginatedTransactionResponse::class.java, TransactionListDeserializer())
                 .create()
 
             return Retrofit.Builder()
                 .baseUrl(BASE_URL)
+                .client(okHttpClient)
                 .addConverterFactory(GsonConverterFactory.create(gson))
                 .build()
                 .create(BackendService::class.java)

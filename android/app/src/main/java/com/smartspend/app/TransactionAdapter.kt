@@ -23,7 +23,8 @@ sealed class TxListItem {
  */
 class TransactionAdapter(
     private val onItemClick: (TransactionData) -> Unit = {},
-    private val onItemLongClick: (TransactionData) -> Unit = {}
+    private val onItemLongClick: (TransactionData) -> Unit = {},
+    private val onBadgeClick: (TransactionData) -> Unit = {}
 ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     private var items: List<TxListItem> = emptyList()
@@ -49,7 +50,8 @@ class TransactionAdapter(
             TransactionViewHolder(
                 ItemTransactionCardBinding.inflate(inflater, parent, false),
                 onItemClick,
-                onItemLongClick
+                onItemLongClick,
+                onBadgeClick
             )
         }
     }
@@ -74,7 +76,8 @@ class TransactionAdapter(
     class TransactionViewHolder(
         private val binding: ItemTransactionCardBinding,
         private val onItemClick: (TransactionData) -> Unit,
-        private val onItemLongClick: (TransactionData) -> Unit
+        private val onItemLongClick: (TransactionData) -> Unit,
+        private val onBadgeClick: (TransactionData) -> Unit
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(tx: TransactionData) {
@@ -128,9 +131,14 @@ class TransactionAdapter(
                 binding.tvConfidenceBadge.text = "JUST NOW"
                 binding.tvConfidenceBadge.setTextColor(ContextCompat.getColor(itemView.context, R.color.emerald_success))
             } else {
-                binding.tvConfidenceBadge.text = "High"
+                // "High" = AI categorized with high confidence. Tap to override.
+                binding.tvConfidenceBadge.text = "High ✏"
                 binding.tvConfidenceBadge.setTextColor(ContextCompat.getColor(itemView.context, R.color.emerald_success))
             }
+
+            // Make the badge always clickable to change category
+            binding.tvConfidenceBadge.isClickable = true
+            binding.tvConfidenceBadge.setOnClickListener { onBadgeClick(tx) }
         }
     }
 
