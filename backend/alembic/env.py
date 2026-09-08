@@ -62,7 +62,7 @@ def run_migrations_online() -> None:
 
     """
     import os
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL").replace("postgresql+asyncpg", "postgresql+psycopg2"))s
+    config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL").replace("postgresql+asyncpg", "postgresql+psycopg2"))
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

@@ -90,7 +90,7 @@ class TransactionAdapter(
             val merchantName = if (isTransfer && !tx.transfer_to.isNullOrBlank()) {
                 "Transfer to ${tx.transfer_to}"
             } else {
-                tx.merchant?.takeIf { it.isNotBlank() } ?: tx.category
+                humanizeMerchant(tx.merchant)
             }
             binding.tvMerchantName.text = merchantName
 
@@ -139,6 +139,17 @@ class TransactionAdapter(
             // Make the badge always clickable to change category
             binding.tvConfidenceBadge.isClickable = true
             binding.tvConfidenceBadge.setOnClickListener { onBadgeClick(tx) }
+        }
+
+        private fun humanizeMerchant(rawMerchant: String?): String {
+            val merchant = rawMerchant?.trim().orEmpty()
+            if (merchant.isEmpty() || merchant.equals("Unknown Merchant", ignoreCase = true)) {
+                return "Unknown sender"
+            }
+            if (merchant.matches(Regex("^[+0-9][0-9() .-]{6,}$")) || merchant.contains("@")) {
+                return "Unknown sender"
+            }
+            return merchant
         }
     }
 

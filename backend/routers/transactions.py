@@ -45,11 +45,19 @@ from categorizer.transaction_categorizer import (
     categorize_transaction,
     process_upi_sms,
     process_batch,
-    save_user_correction,
+    find_known_merchant,
     normalize_name,
+)
+from services.transaction_aggregates import (
+    get_category_totals,
+    get_mom_change,
+    get_budget_utilization,
+    get_monthly_overview,
 )
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
+
+
 
 
 def categorize_parsed_sms(parsed: dict, raw_sms: str) -> dict:
@@ -195,7 +203,14 @@ async def get_monthly_category_summary(
     prev_start_dt = datetime(prev_year, prev_month, 1, 0, 0, 0, tzinfo=timezone.utc)
     prev_end_dt = datetime(prev_year, prev_month, prev_last_day, 23, 59, 59, 999999, tzinfo=timezone.utc)
 
-    # 3. Fetch target month debits for current user
+    overview = await get_monthly_overview(db, current_user.id, year, month, include_transfers=True)
+    budget_statuses = await get_budget_utilization(db, current_user.id, year, month)
+    budget_map = {b.category.lower(): b for b in budget_statuses}
+
+    last_day = calendar.monthrange(year, month)[1]
+    start_dt = datetime(year, month, 1, 0, 0, 0, tzinfo=timezone.utc)
+    end_dt = datetime(year, month, last_day, 23, 59, 59, 999999, tzinfo=timezone.utc)
+
     debits_query = select(Transaction).where(
         and_(
             Transaction.user_id == current_user.id,
@@ -207,11 +222,6 @@ async def get_monthly_category_summary(
     debits_res = await db.execute(debits_query)
     debits = list(debits_res.scalars().all())
 
-    total_spent = round(sum(t.amount for t in debits), 2)
-    merchant_spent = round(sum(t.amount for t in debits if not t.is_transfer), 2)
-    transfer_sent = round(sum(t.amount for t in debits if t.is_transfer), 2)
-
-    # Credits for transfer_received calculation
     credits_query = select(Transaction).where(
         and_(
             Transaction.user_id == current_user.id,
@@ -222,57 +232,32 @@ async def get_monthly_category_summary(
         )
     )
     credits_res = await db.execute(credits_query)
-    transfer_received = round(sum(t.amount for t in credits_res.scalars().all()), 2)
+    transfer_received = round(sum(float(t.amount) for t in credits_res.scalars().all()), 2)
 
-    # 4. Fetch previous month total spent
-    prev_query = select(func.coalesce(func.sum(Transaction.amount), 0.0)).where(
-        and_(
-            Transaction.user_id == current_user.id,
-            Transaction.type == "debit",
-            Transaction.date >= prev_start_dt,
-            Transaction.date <= prev_end_dt,
-        )
-    )
-    prev_res = await db.execute(prev_query)
-    previous_month_total = round(float(prev_res.scalar() or 0.0), 2)
-
-    # 5. Compute Month-over-Month change percentage
-    if previous_month_total > 0:
-        mom_change = round(((total_spent - previous_month_total) / previous_month_total) * 100, 1)
-    else:
-        mom_change = 0.0
-
-    # 6. Fetch user's budget limits from database
-    budgets_query = select(BudgetLimit).where(BudgetLimit.user_id == current_user.id)
-    budgets_res = await db.execute(budgets_query)
-    budget_map = {b.category.lower(): float(b.monthly_limit) for b in budgets_res.scalars().all()}
-
-    # 7. Group target debits by category
-    category_groups: Dict[str, List[Transaction]] = {}
-    for t in debits:
-        cat_name = t.category.strip() if t.category else "Other"
-        category_groups.setdefault(cat_name, []).append(t)
+    category_totals = overview["category_totals"]
+    total_spent = overview["total_spent"]
 
     categories_summary = []
-    for cat_name, cat_txs in category_groups.items():
-        cat_total = round(sum(t.amount for t in cat_txs), 2)
+    for cat_name, cat_total in category_totals.items():
         percentage = round((cat_total / total_spent) * 100, 1) if total_spent > 0 else 0.0
+        cat_txs = [
+            t for t in debits
+            if (t.category or "").strip().lower() == cat_name.lower() or
+            (t.category and normalize_name(t.category).lower() == cat_name.lower())
+        ]
         tx_count = len(cat_txs)
 
-        # Determine top merchant in this category
         merchant_totals: Dict[str, float] = {}
         for t in cat_txs:
             if t.merchant and t.merchant.strip():
                 m_name = t.merchant.strip()
-                merchant_totals[m_name] = merchant_totals.get(m_name, 0.0) + t.amount
+                merchant_totals[m_name] = merchant_totals.get(m_name, 0.0) + float(t.amount)
 
-        if merchant_totals:
-            top_merchant = max(merchant_totals.items(), key=lambda x: x[1])[0]
-        else:
-            top_merchant = "N/A"
+        top_merchant = max(merchant_totals.items(), key=lambda x: x[1])[0] if merchant_totals else "N/A"
 
-        b_limit = budget_map.get(cat_name.lower(), 0.0)
-        b_used_pct = round((cat_total / b_limit) * 100, 1) if b_limit > 0 else 0.0
+        b_status = budget_map.get(cat_name.lower())
+        b_limit = b_status.limit if b_status else 0.0
+        b_used_pct = b_status.percent_used if b_status else 0.0
 
         categories_summary.append(
             CategorySummaryItem(
@@ -286,20 +271,41 @@ async def get_monthly_category_summary(
             )
         )
 
-    # Sort categories by total DESC
     categories_summary.sort(key=lambda x: x.total, reverse=True)
+
+    if month == 1:
+        prev_month = 12
+        prev_year = year - 1
+    else:
+        prev_month = month - 1
+        prev_year = year
+    prev_last_day = calendar.monthrange(prev_year, prev_month)[1]
+    prev_start_dt = datetime(prev_year, prev_month, 1, 0, 0, 0, tzinfo=timezone.utc)
+    prev_end_dt = datetime(prev_year, prev_month, prev_last_day, 23, 59, 59, 999999, tzinfo=timezone.utc)
+
+    prev_query = select(func.coalesce(func.sum(Transaction.amount), 0.0)).where(
+        and_(
+            Transaction.user_id == current_user.id,
+            Transaction.type == "debit",
+            Transaction.date >= prev_start_dt,
+            Transaction.date <= prev_end_dt,
+        )
+    )
+    prev_res = await db.execute(prev_query)
+    previous_month_total = round(float(prev_res.scalar() or 0.0), 2)
 
     return MonthlyCategorySummaryResponse(
         month=month,
         year=year,
-        total_spent=total_spent,
-        merchant_spent=merchant_spent,
-        transfer_sent=transfer_sent,
+        total_spent=overview["total_spent"],
+        merchant_spent=overview["merchant_spent"],
+        transfer_sent=overview["transfer_sent"],
         transfer_received=transfer_received,
         categories=categories_summary,
         previous_month_total=previous_month_total,
-        month_over_month_change=mom_change,
+        month_over_month_change=overview["mom_change_percent"] or 0.0,
     )
+
 
 
 @router.get(
@@ -432,7 +438,9 @@ async def get_summary(
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, float]:
     """
-    Computes category totals for the authenticated user for a given month.
+    Computes normalized category debit totals for the authenticated user for a given month.
+    Delegates to the shared get_category_totals() service layer for consistent normalization,
+    placeholder exclusion, and transfer filtering across all pages.
 
     Args:
         month (str): The month to filter by, formatted as YYYY-MM.
@@ -443,7 +451,7 @@ async def get_summary(
         HTTPException: 400 Bad Request if the month format is invalid.
 
     Returns:
-        Dict[str, float]: Aggregated transaction totals grouped by category.
+        Dict[str, float]: Normalized aggregated debit totals grouped by category.
     """
     try:
         parsed_month = datetime.strptime(month, "%Y-%m")
@@ -453,24 +461,13 @@ async def get_summary(
             detail="Invalid month format. Use YYYY-MM format, e.g., 2026-05."
         )
 
-    _, last_day = calendar.monthrange(parsed_month.year, parsed_month.month)
-    start_date = datetime(parsed_month.year, parsed_month.month, 1, 0, 0, 0, tzinfo=timezone.utc)
-    end_date = datetime(parsed_month.year, parsed_month.month, last_day, 23, 59, 59, 999999, tzinfo=timezone.utc)
-
-    query = (
-        select(Transaction.category, func.sum(Transaction.amount))
-        .where(
-            and_(
-                Transaction.user_id == current_user.id,
-                Transaction.date >= start_date,
-                Transaction.date <= end_date
-            )
-        )
-        .group_by(Transaction.category)
+    return await get_category_totals(
+        db,
+        current_user.id,
+        parsed_month.year,
+        parsed_month.month,
+        include_transfers=False,
     )
-    result = await db.execute(query)
-
-    return {row[0]: float(row[1]) for row in result.all()}
 
 
 @router.post(

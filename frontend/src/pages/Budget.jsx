@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { budgetService, transactionService, categoryService } from '../services/api';
+import { budgetService, categoryService } from '../services/api';
 import { 
   Wallet, PlusCircle, AlertCircle, CheckCircle2, 
   Loader2, Info, X, ShieldCheck
@@ -8,10 +8,13 @@ import BudgetProgressBar from '../components/BudgetProgressBar';
 
 /**
  * Budget Limit page featuring full inline-editable cards (no redundant form panel).
+ * Spent amounts are sourced from GET /budget/utilization (shared service layer),
+ * not computed client-side from raw transaction lists.
  */
 const Budget = () => {
   const [budgets, setBudgets] = useState([]);
-  const [categoryTotals, setCategoryTotals] = useState({});
+  // utilizationMap: { [normalizedCategory]: { spent, limit, percent_used, is_alert, is_family_limit } }
+  const [utilizationMap, setUtilizationMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [categories, setCategories] = useState([
@@ -37,14 +40,14 @@ const Budget = () => {
     setErrorMsg('');
     try {
       const now = new Date();
-      const yyyy = now.getFullYear();
-      const firstDay = new Date(yyyy, now.getMonth(), 1).toISOString();
-      const lastDay = new Date(yyyy, now.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
 
-      const [budgetLimits, txs, fetchedCategories] = await Promise.all([
+      // Fetch budget limits (for editing) and live utilization (for spent %) in parallel.
+      // getUtilization() calls GET /budget/utilization which runs get_budget_utilization()
+      // from the shared service layer: normalized categories, debit-only, no placeholders.
+      const [budgetLimits, utilization, fetchedCategories] = await Promise.all([
         budgetService.getBudgets(),
-        transactionService.listTransactions({ start_date: firstDay, end_date: lastDay }),
-        categoryService.getCategories().catch(() => null)
+        budgetService.getUtilization(now.getMonth() + 1, now.getFullYear()),
+        categoryService.getCategories().catch(() => null),
       ]);
 
       if (fetchedCategories && Array.isArray(fetchedCategories)) {
@@ -53,18 +56,20 @@ const Budget = () => {
 
       setBudgets(budgetLimits);
 
-      const totals = {};
-      txs.filter(t => t.type === 'debit').forEach(t => {
-        totals[t.category] = (totals[t.category] || 0) + parseFloat(t.amount);
+      // Build a lookup map keyed by normalized lowercase category name
+      const uMap = {};
+      utilization.forEach(u => {
+        uMap[u.category.toLowerCase()] = u;
       });
-      setCategoryTotals(totals);
-      
+      setUtilizationMap(uMap);
+
       setLoading(false);
     } catch (err) {
       setLoading(false);
       setErrorMsg('Could not load budget constraints. Check backend connection.');
     }
   };
+
 
   // Inline Card Save Callback
   const handleSaveBudgetInline = async (budgetData) => {
@@ -109,10 +114,6 @@ const Budget = () => {
     );
   }
 
-  const activeBudgetsMap = {};
-  budgets.forEach(b => {
-    activeBudgetsMap[b.category] = b;
-  });
 
   return (
     <div className="space-y-8 font-sans">
@@ -157,18 +158,35 @@ const Budget = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from(new Set([...categories, ...budgets.map(b => b.category), ...Object.keys(categoryTotals)])).map(cat => {
-            const activeBudget = activeBudgetsMap[cat];
-            const spent = categoryTotals[cat] || 0;
+          {/* Show all categories with a budget limit (from utilization), plus any from
+              the categories list that don't have a limit yet (spent = 0) */}
+          {Array.from(new Set([
+            ...budgets.map(b => b.category),
+            ...Object.keys(utilizationMap).map(k =>
+              budgets.find(b => b.category.toLowerCase() === k)?.category || k
+            ),
+            ...categories,
+          ])).map(cat => {
+            const activeBudget = budgets.find(
+              b => b.category.toLowerCase() === cat.toLowerCase()
+            );
+            // Prefer utilization data (backend-computed, normalized) for spent/limit/percent
+            const util = utilizationMap[cat.toLowerCase()] ||
+              utilizationMap[activeBudget?.category?.toLowerCase()];
+
+            const spent  = util?.spent  ?? 0;
+            const limit  = util?.limit  ?? activeBudget?.monthly_limit ?? 0;
+            const alertAt = activeBudget?.alert_at_percent ?? 80;
+            const isFamilyLimit = util?.is_family_limit ?? activeBudget?.is_family_limit ?? false;
 
             return (
               <BudgetProgressBar
                 key={cat}
                 category={cat}
                 spent={spent}
-                limit={activeBudget?.monthly_limit || 0}
-                alertAt={activeBudget?.alert_at_percent || 80}
-                isFamilyLimit={activeBudget?.is_family_limit || false}
+                limit={limit}
+                alertAt={alertAt}
+                isFamilyLimit={isFamilyLimit}
                 onSaveBudget={handleSaveBudgetInline}
               />
             );

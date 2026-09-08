@@ -12,6 +12,7 @@ import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
@@ -188,10 +189,27 @@ data class CategorizePayload(
     val merchant_alias: String? = null
 )
 
+data class DeleteAccountPayload(
+    val password: String? = null,
+    val confirmation_text: String
+)
+
+data class DeleteAccountResponse(
+    val success: Boolean,
+    val message: String,
+    val deleted_at: String
+)
+
 /**
  * Retrofit service interface for all SmartSpend backend API calls.
  */
 interface BackendService {
+
+    @DELETE("users/me")
+    suspend fun deleteMyAccount(
+        @Header("Authorization") token: String,
+        @Body payload: DeleteAccountPayload
+    ): Response<DeleteAccountResponse>
 
     /**
      * Fetch transactions requiring user review/categorization.

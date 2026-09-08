@@ -209,7 +209,23 @@ export const budgetService = {
     });
     return response.data;
   },
+
+  /**
+   * Fetches live budget utilization (spent vs limit) from the shared service layer.
+   * Returns normalized, placeholder-excluded, debit-only category utilization.
+   *
+   * @param {number|null} month - Target month (1-12). Defaults to current month on backend.
+   * @param {number|null} year  - Target year. Defaults to current year on backend.
+   */
+  getUtilization: async (month = null, year = null) => {
+    const params = {};
+    if (month !== null) params.month = month;
+    if (year !== null) params.year = year;
+    const response = await api.get('/budget/utilization', { params });
+    return response.data; // List[{category, spent, limit, percent_used, is_alert, is_family_limit}]
+  },
 };
+
 
 export const insightService = {
   /**

@@ -181,8 +181,10 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
     merch_patterns = [
         r"(?:to|at|info:)\s+([A-Za-z0-9\s._&\-]+?)(?:\s+on|\s+ref|\s+upi|\s+val|\.|$)",
         r"(?:vpa|to)\s+([a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+)",
-        r"(?:from)\s+([A-Za-z0-9\s._&\-]+?)(?:\s+on|\s+ref|\s+upi|\.|$)"
+        r"(?:from)\s+([A-Za-z0-9\s._&\-]+?)(?:\s+on|\s+ref|\s+upi|\.|$)",
+        r";?\s*([A-Za-z0-9\s._&\-]+?)\s+credited"
     ]
+
 
     for pat in merch_patterns:
         match = re.search(pat, sms, re.IGNORECASE)

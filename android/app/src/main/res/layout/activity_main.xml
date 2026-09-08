@@ -622,30 +622,6 @@
                             android:text="⚠️"
                             android:textSize="18sp" />
 
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tvExceededBannerTitle"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Shopping budget exceeded"
-                                android:textColor="@color/rose_error"
-                                android:textSize="13sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:id="@+id/tvExceededBannerSubtitle"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="₹5,698.00 of ₹5,000.00 (114% used)"
-                                android:textColor="@color/rose_error"
-                                android:textSize="11sp" />
-                        </LinearLayout>
-
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
@@ -707,8 +683,8 @@
                         <com.smartspend.app.DailySpendChartView
                             android:id="@+id/cvDailySpendChart"
                             android:layout_width="match_parent"
-                            android:layout_height="120dp"
-                            android:layout_marginBottom="8dp" />
+                            android:layout_height="180dp"
+                            android:layout_marginBottom="12dp" />
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -736,20 +712,19 @@
                             android:textSize="16sp"
                             android:textStyle="bold" />
 
-                        <!-- Donut Chart & Legend Row -->
+                        <!-- Donut Chart -->
+                        <com.smartspend.app.CategoryDonutChartView
+                            android:id="@+id/cvCategoryDonut"
+                            android:layout_width="match_parent"
+                            android:layout_height="180dp"
+                            android:layout_marginBottom="12dp" />
+
+                        <!-- Category Legend -->
                         <LinearLayout
                             android:layout_width="match_parent"
-                            android:layout_height="140dp"
-                            android:gravity="center_vertical"
+                            android:layout_height="wrap_content"
                             android:orientation="horizontal">
 
-                            <com.smartspend.app.CategoryDonutChartView
-                                android:id="@+id/cvCategoryDonut"
-                                android:layout_width="120dp"
-                                android:layout_height="120dp"
-                                android:layout_marginEnd="16dp" />
-
-                            <!-- Dynamic Legend List Container -->
                             <LinearLayout
                                 android:id="@+id/llCategoryLegendContainer"
                                 android:layout_width="0dp"
@@ -1588,7 +1563,19 @@
                         </LinearLayout>
                     </LinearLayout>
 
-                    <!-- Section 3: Logout Action Button -->
+                    <!-- Section 3: Account Actions -->
+                    <Button
+                        android:id="@+id/btnDeleteAccountProfile"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginBottom="12dp"
+                        android:backgroundTint="@color/rose_error"
+                        android:text="Delete My Account"
+                        android:textAllCaps="false"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
                     <Button
                         android:id="@+id/btnLogoutProfile"
                         android:layout_width="match_parent"
@@ -1697,6 +1684,30 @@
                     android:textColor="@color/text_secondary"
                     android:textSize="10sp"
                     android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvExceededBannerTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Shopping budget exceeded"
+                        android:textColor="@color/rose_error"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvExceededBannerSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="₹5,698.00 of ₹5,000.00 (114% used)"
+                        android:textColor="@color/rose_error"
+                        android:textSize="11sp" />
+                </LinearLayout>
             </LinearLayout>
 
             <!-- Nav 4: Insights -->

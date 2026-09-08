@@ -2,10 +2,12 @@
 Router for Budget Limit Configurations.
 
 Provides endpoints to create, update, and fetch category spending limits.
+Also exposes a /utilization endpoint backed by the shared service layer.
 """
 
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timezone
+from typing import List, Any, Dict, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +16,9 @@ from models.budget import BudgetLimit
 from models.user import User
 from schemas.budget import BudgetLimitCreate, BudgetLimitResponse
 from utils.dependencies import get_current_user
+from services.transaction_aggregates import get_budget_utilization, BudgetStatus
+
+from categorizer.transaction_categorizer import normalize_category_name
 
 router = APIRouter(prefix="/budget", tags=["Budget Limits"])
 
@@ -32,20 +37,14 @@ async def set_budget_limit(
     """
     Sets a monthly budget spending limit for a specific category.
     If a limit already exists for that category, updates it; otherwise, creates a new record.
-
-    Args:
-        budget_in (BudgetLimitCreate): The budget limit parameters.
-        current_user (User): Authenticated user.
-        db (AsyncSession): Database session.
-
-    Returns:
-        BudgetLimit: The updated or new BudgetLimit database object.
     """
+    norm_cat = normalize_category_name(budget_in.category)
+
     # Check if a limit already exists for the user and category
     query = select(BudgetLimit).where(
         and_(
             BudgetLimit.user_id == current_user.id,
-            BudgetLimit.category.ilike(budget_in.category),
+            BudgetLimit.category.ilike(norm_cat),
         )
     )
     result = await db.execute(query)
@@ -53,18 +52,18 @@ async def set_budget_limit(
 
     if existing_limit:
         # Update existing
+        existing_limit.category = norm_cat
         existing_limit.monthly_limit = budget_in.monthly_limit
         existing_limit.alert_at_percent = budget_in.alert_at_percent
         existing_limit.is_family_limit = budget_in.is_family_limit
         
-        # Save change and return
         await db.flush()
         return existing_limit
 
     # Create new
     new_limit = BudgetLimit(
         user_id=current_user.id,
-        category=budget_in.category,
+        category=norm_cat,
         monthly_limit=budget_in.monthly_limit,
         alert_at_percent=budget_in.alert_at_percent,
         is_family_limit=budget_in.is_family_limit,
@@ -88,22 +87,8 @@ async def get_budget_limits(
     """
     Lists all budget limits registered under the current user.
     Also returns family-wide budgets if the user belongs to a family group.
-
-    Args:
-        current_user (User): Authenticated user.
-        db (AsyncSession): Database session.
-
-    Returns:
-        List[BudgetLimit]: List of budget limits matching the criteria.
     """
-    # Fetch user's limits
-    conditions = [BudgetLimit.user_id == current_user.id]
-
-    # If user belongs to a family, we can also include family-wide limits set by other members
-    # (or we can just fetch the user's limits. Let's include both for completeness).
     if current_user.family_id:
-        # Subquery or separate clause to pull limits of any member of the family
-        # where is_family_limit is True
         family_member_query = select(User.id).where(User.family_id == current_user.family_id)
         res_ids = await db.execute(family_member_query)
         member_ids = list(res_ids.scalars().all())
@@ -118,5 +103,59 @@ async def get_budget_limits(
         query = select(BudgetLimit).where(BudgetLimit.user_id == current_user.id)
 
     result = await db.execute(query)
-    
-    return list(result.scalars().all())
+
+    unique_budgets = {}
+    for budget in result.scalars().all():
+        key = normalize_category_name(budget.category).lower()
+        existing = unique_budgets.get(key)
+        if existing is None or budget.user_id == current_user.id:
+            unique_budgets[key] = budget
+
+    return list(unique_budgets.values())
+
+
+@router.get(
+    "/utilization",
+    response_model=List[Dict[str, Any]],
+    summary="Get live budget utilization for a given month from the shared service layer",
+)
+async def get_budget_utilization_endpoint(
+    month: Optional[int] = Query(None, ge=1, le=12, description="Target month (1-12). Defaults to current month."),
+    year: Optional[int] = Query(None, ge=2020, le=2030, description="Target year. Defaults to current year."),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[Dict[str, Any]]:
+    """
+    Returns live category budget utilization computed by the shared service layer.
+    Each entry contains: category, spent, limit, percent_used, is_alert, is_family_limit.
+
+    Rules (enforced by get_budget_utilization):
+    - category names are normalized via normalize_category_name().
+    - spent is computed from live transactions table debits only (no cache).
+    - Placeholder categories (needs_review, other, etc.) are excluded.
+
+    Args:
+        month (Optional[int]): Target month (1-12). Defaults to current UTC month.
+        year (Optional[int]): Target year. Defaults to current UTC year.
+        current_user (User): Authenticated user.
+        db (AsyncSession): Active database session.
+
+    Returns:
+        List[Dict[str, Any]]: Sorted list of budget utilization status objects.
+    """
+    now = datetime.now(timezone.utc)
+    target_month = month if month is not None else now.month
+    target_year = year if year is not None else now.year
+
+    statuses = await get_budget_utilization(db, current_user.id, target_year, target_month)
+    return [
+        {
+            "category": s.category,
+            "spent": s.spent,
+            "limit": s.limit,
+            "percent_used": s.percent_used,
+            "is_alert": s.is_alert,
+            "is_family_limit": s.is_family_limit,
+        }
+        for s in statuses
+    ]

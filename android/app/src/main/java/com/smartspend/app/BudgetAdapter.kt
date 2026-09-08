@@ -18,8 +18,15 @@ class BudgetAdapter(
     private var spendingMap: Map<String, Double> = emptyMap()
 
     fun updateData(newBudgets: List<BudgetLimitData>, newSpending: Map<String, Double>) {
-        budgets = newBudgets
         spendingMap = newSpending
+        val unique = LinkedHashMap<String, BudgetLimitData>()
+        newBudgets.forEach { budget ->
+            unique.putIfAbsent(normalizeBudgetCategory(budget.category), budget)
+        }
+        budgets = unique.values.sortedWith(
+            compareByDescending<BudgetLimitData> { statusRank(it) }
+                .thenBy { it.category.lowercase() }
+        )
         notifyDataSetChanged()
     }
 
@@ -37,6 +44,29 @@ class BudgetAdapter(
     }
 
     override fun getItemCount(): Int = budgets.size
+
+    private fun normalizeBudgetCategory(category: String): String {
+        return when (category.trim().lowercase()) {
+            "food & dining", "food and dining", "groceries" -> "food"
+            "transportation" -> "transport"
+            "utilities & bills", "bills" -> "utilities"
+            "health & fitness", "health" -> "healthcare"
+            else -> category.trim().lowercase()
+        }
+    }
+
+    private fun statusRank(budget: BudgetLimitData): Int {
+        if (budget.monthly_limit <= 0) return 0
+        val spent = spendingMap.entries
+            .filter { normalizeBudgetCategory(it.key) == normalizeBudgetCategory(budget.category) }
+            .sumOf { it.value }
+        val percent = (spent / budget.monthly_limit) * 100
+        return when {
+            percent >= 100 -> 3
+            percent >= 80 -> 2
+            else -> 1
+        }
+    }
 
     class BudgetViewHolder(private val binding: ItemBudgetCardBinding) :
         RecyclerView.ViewHolder(binding.root) {

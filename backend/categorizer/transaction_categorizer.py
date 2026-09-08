@@ -8,7 +8,8 @@ Flow:
 Data sources used:
   1. merchants.json      - Top 300 Indian merchants (local DB)
   2. mcc_codes.json      - greggles/mcc-codes (ISO MCC standard)
-  3. user_corrections.json - Saved user re-categorizations (grows over time)
+User-specific corrections are stored in the database by the API layer. They
+must not be kept in this process-wide data directory.
 """
 
 import json
@@ -22,19 +23,23 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 MERCHANTS_PATH = os.path.join(DATA_DIR, "merchants.json")
 MCC_PATH = os.path.join(DATA_DIR, "mcc_codes.json")
-CORRECTIONS_PATH = os.path.join(DATA_DIR, "user_corrections.json")
+LEGACY_CORRECTIONS_PATH = os.path.join(DATA_DIR, "user_corrections.json")
 
 MERCHANTS: List[Dict[str, Any]] = []
 MCC_CODES: List[Dict[str, Any]] = []
-USER_CORRECTIONS: Dict[str, Any] = {}
 
 
 def load_data() -> None:
     """
-    Load data files including merchants, MCC codes, and user corrections.
+    Load the static merchant and MCC data files.
     """
-    global MERCHANTS, MCC_CODES, USER_CORRECTIONS
+    global MERCHANTS, MCC_CODES
     try:
+        # Remove the old shared corrections file if an older deployment left it
+        # on disk. It was never user-scoped and is no longer a data source.
+        if os.path.exists(LEGACY_CORRECTIONS_PATH):
+            os.remove(LEGACY_CORRECTIONS_PATH)
+
         if os.path.exists(MERCHANTS_PATH):
             with open(MERCHANTS_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -46,10 +51,6 @@ def load_data() -> None:
                 MCC_CODES = json.load(f)
                 print(f"[OK] Loaded {len(MCC_CODES)} MCC codes")
 
-        if os.path.exists(CORRECTIONS_PATH):
-            with open(CORRECTIONS_PATH, "r", encoding="utf-8") as f:
-                USER_CORRECTIONS = json.load(f)
-                print(f"[OK] Loaded {len(USER_CORRECTIONS)} user corrections")
     except Exception as err:
         print(f"Error loading data files: {err}")
 
@@ -181,7 +182,7 @@ def parse_sms(sms: str) -> Optional[Dict[str, Any]]:
 
 # ─────────────────────────────────────────────
 # 3. MERCHANT MATCHING ENGINE
-# Priority: User Corrections -> Merchant DB -> MCC Codes -> Miscellaneous
+# Priority: User DB mapping (API layer) -> Merchant DB -> MCC Codes -> Miscellaneous
 # ─────────────────────────────────────────────
 
 def normalize_name(name: str) -> str:
@@ -227,25 +228,6 @@ def fuzzy_score(query: str, target: str) -> int:
     return 0
 
 
-def match_user_corrections(merchant_raw: str) -> Optional[Dict[str, Any]]:
-    """
-    Check user corrections first.
-    If a user has re-categorized this merchant before -> trust that.
-    """
-    key = normalize_name(merchant_raw)
-    if key in USER_CORRECTIONS:
-        correction = USER_CORRECTIONS[key]
-        if correction.get("count", 0) >= 1:
-            return {
-                "category": correction["category"],
-                "subcategory": correction.get("subcategory"),
-                "merchant": correction.get("merchant_display", merchant_raw),
-                "source": "user_correction",
-                "confidence": "high",
-            }
-    return None
-
-
 def match_merchant_db(merchant_raw: str) -> Optional[Dict[str, Any]]:
     """
     Match against Top 300 Indian Merchants DB.
@@ -279,6 +261,25 @@ def match_merchant_db(merchant_raw: str) -> Optional[Dict[str, Any]]:
             "score": best_score,
         }
 
+    return None
+
+
+def find_known_merchant(raw_sms: Optional[str]) -> Optional[str]:
+    """Recover a known merchant when the bank parser returns no useful name."""
+    if not raw_sms:
+        return None
+
+    normalized_sms = normalize_name(raw_sms)
+    candidates = []
+    for merchant in MERCHANTS:
+        for name in [merchant.get("name", ""), *merchant.get("aliases", [])]:
+            normalized_name = normalize_name(name)
+            if normalized_name:
+                candidates.append((len(normalized_name), normalized_name, name))
+
+    for _, normalized_name, original_name in sorted(candidates, reverse=True):
+        if re.search(rf"(?<![A-Z0-9]){re.escape(normalized_name)}(?![A-Z0-9])", normalized_sms):
+            return original_name
     return None
 
 
@@ -407,21 +408,17 @@ def categorize_transaction(parsed: Optional[Dict[str, Any]]) -> Optional[Dict[st
         return None
 
     merchant_raw = parsed.get("merchant_raw")
+    if not merchant_raw or normalize_name(merchant_raw) in {"UNKNOWN", "UNKNOWN MERCHANT"}:
+        merchant_raw = find_known_merchant(parsed.get("raw"))
     category_result = None
 
     if merchant_raw:
-        # Priority 1: User corrections
-        category_result = match_user_corrections(merchant_raw)
+        # User-specific mappings are applied by the authenticated API layer.
+        category_result = match_merchant_db(merchant_raw)
 
-        # Priority 2: Merchant DB
-        if not category_result:
-            category_result = match_merchant_db(merchant_raw)
-
-        # Priority 3: MCC codes
         if not category_result:
             category_result = match_mcc_codes(merchant_raw)
 
-    # Priority 4: Fallback
     if not category_result:
         category_result = fallback_category(merchant_raw)
 
@@ -442,80 +439,8 @@ def process_upi_sms(sms: str) -> Optional[Dict[str, Any]]:
 
 
 # ─────────────────────────────────────────────
-# 5. USER CORRECTION (Feedback Loop)
+# 5. BATCH PROCESSING
 # ─────────────────────────────────────────────
-
-def auto_promote_to_merchant_db(
-    merchant_raw: str,
-    category: str,
-    subcategory: Optional[str],
-    display_name: Optional[str]
-) -> None:
-    """
-    Auto-promote frequently-corrected merchants into the main merchant DB.
-    """
-    global MERCHANTS
-    existing = any(normalize_name(m.get("name", "")) == normalize_name(merchant_raw) for m in MERCHANTS)
-    if existing:
-        return
-
-    new_entry = {
-        "name": display_name or merchant_raw,
-        "aliases": [merchant_raw.upper()],
-        "category": category,
-        "subcategory": subcategory,
-        "auto_promoted": True,
-        "promoted_at": datetime.utcnow().isoformat() + "Z",
-    }
-
-    MERCHANTS.append(new_entry)
-    print(f"[PROMOTED] Auto-promoted \"{merchant_raw}\" to merchant DB as {category}")
-
-    try:
-        if os.path.exists(MERCHANTS_PATH):
-            with open(MERCHANTS_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            data.setdefault("merchants", []).append(new_entry)
-            with open(MERCHANTS_PATH, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=4)
-    except Exception as err:
-        print(f"Error updating merchants.json: {err}")
-
-
-def save_user_correction(
-    merchant_raw: str,
-    new_category: str,
-    subcategory: Optional[str] = None,
-    display_name: Optional[str] = None
-) -> None:
-    """
-    Save a user's manual re-categorization.
-    """
-    if not merchant_raw or not new_category:
-        return
-
-    key = normalize_name(merchant_raw)
-    existing = USER_CORRECTIONS.get(key, {"count": 0})
-
-    USER_CORRECTIONS[key] = {
-        "merchant_raw": merchant_raw,
-        "merchant_display": display_name or merchant_raw,
-        "category": new_category,
-        "subcategory": subcategory,
-        "count": existing.get("count", 0) + 1,
-        "last_updated": datetime.utcnow().isoformat() + "Z",
-    }
-
-    try:
-        with open(CORRECTIONS_PATH, "w", encoding="utf-8") as f:
-            json.dump(USER_CORRECTIONS, f, indent=2)
-        print(f"[SAVED] Saved correction: \"{merchant_raw}\" -> {new_category}")
-
-        if USER_CORRECTIONS[key]["count"] >= 3:
-            auto_promote_to_merchant_db(merchant_raw, new_category, subcategory, display_name)
-    except Exception as err:
-        print(f"Error saving correction: {err}")
-
 
 # ─────────────────────────────────────────────
 # 6. BATCH PROCESSING
@@ -564,16 +489,6 @@ def run_demo() -> None:
             print(f"     Source   : {result.get('source')} ({result.get('confidence')} confidence)")
             print(f"     Type     : {result.get('type') or 'unknown'}")
             print()
-
-    print("--- User Correction Demo ---")
-    print("User re-categorizes \"UNKNOWN KIRANA SHOP\" -> Groceries\n")
-    save_user_correction("UNKNOWN KIRANA SHOP", "Groceries", "Local Store", "Kirana Shop")
-
-    corrected_result = process_upi_sms("Payment of Rs.45 to UNKNOWN KIRANA SHOP via UPI successful.")
-    if corrected_result:
-        print("Re-processed result:")
-        print(f"  Category: {corrected_result.get('category')} (source: {corrected_result.get('source')})")
-
 
 if __name__ == "__main__":
     run_demo()

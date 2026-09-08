@@ -49,18 +49,27 @@ async def get_insights_summary(
             Transaction.user_id == current_user.id
         ).distinct()
         categories_res = await db.execute(categories_query)
-        active_categories = categories_res.scalars().all()
+        raw_categories = categories_res.scalars().all()
 
-        # 2. Compute spending changes per category
+        from categorizer.transaction_categorizer import normalize_category_name
+        from services.transaction_aggregates import EXCLUDED_CATEGORY_PLACEHOLDERS
+
+        seen_cats = set()
         spending_changes = []
-        for category in active_categories:
-            change = await compare_month_spending(current_user.id, category, db)
+        for raw_cat in raw_categories:
+            cat_norm = normalize_category_name(raw_cat or "")
+            if not cat_norm or cat_norm.lower() in EXCLUDED_CATEGORY_PLACEHOLDERS or cat_norm.lower() in seen_cats:
+                continue
+            seen_cats.add(cat_norm.lower())
+
+            change = await compare_month_spending(current_user.id, cat_norm, db)
             if change is not None and change != 0.0:
                 spending_changes.append({
-                    "category": category,
+                    "category": cat_norm,
                     "change_percent": abs(change),
                     "direction": "up" if change > 0 else "down"
                 })
+
 
         # 3. Scan for anomalies
         anomalies = await detect_anomalies(current_user.id, db)

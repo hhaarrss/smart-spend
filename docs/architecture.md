@@ -85,7 +85,7 @@ Incoming Transaction / SMS
 
 | Layer | Matching Mechanism | Example Matched Input | Result Category | Confidence | Review Status |
 |---|---|---|---|---|---|
-| **Layer 1** | Saved User Learning Overrides (`user_corrections.json`) | `"Ramesh Kirana"` | `Groceries` | `high` (1.0) | `reviewed` |
+| **Layer 1** | User-scoped `merchant_mappings` database rows | `"Ramesh Kirana"` | `Groceries` | `high` (1.0) | `reviewed` |
 | **Layer 2** | Pre-Indexed Top 255+ Indian Merchants (`merchants.json`) | `"Swiggy"`, `"Zomato"`, `"Uber"` | `Food & Dining`, `Travel` | `high` (0.95) | `auto_categorized` |
 | **Layer 3** | ISO 18245 MCC Standard Matching (`mcc_codes.json`) | `MCC 5814` (Fast Food) | `Food & Dining` | `medium` (0.80) | `auto_categorized` |
 | **Layer 4** | UPI VPA Handle & Subdomain Extraction | `swiggy@icici`, `uber@axis` | `Food & Dining`, `Travel` | `medium` (0.75) | `auto_categorized` |

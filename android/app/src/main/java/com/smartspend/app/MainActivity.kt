@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
+import android.text.InputType
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.EditText
@@ -215,6 +216,7 @@ class MainActivity : ComponentActivity() {
         binding.btnProfileHeader.setOnClickListener { switchScreen(4) }
         binding.btnRefreshInsights.setOnClickListener { fetchInsightsData() }
         binding.btnLogoutProfile.setOnClickListener { showLogoutConfirmationDialog() }
+        binding.btnDeleteAccountProfile.setOnClickListener { showDeleteAccountWarningDialog() }
     }
 
     private fun switchScreen(screenIndex: Int) {
@@ -597,7 +599,7 @@ class MainActivity : ComponentActivity() {
         val totalIncome = credits.sumOf { it.amount }
         val netCashFlow = totalIncome - totalSpent
 
-        binding.tvSpentThisMonth.text = "₹%.2f (Merchants: ₹%.0f | Transfers: ₹%.0f)".format(totalSpent, merchantSpent, transferSent)
+        binding.tvSpentThisMonth.text = "₹%.2f".format(totalSpent)
         binding.tvIncomeCredits.text = "₹%.2f".format(totalIncome)
         binding.tvNetCashFlow.text = "₹%.2f".format(netCashFlow)
 
@@ -1271,6 +1273,110 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
+    private fun showDeleteAccountWarningDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Delete account permanently?")
+            .setMessage(
+                "This permanently deletes your account, transactions, budgets, and merchant categorization history. " +
+                    "This cannot be undone."
+            )
+            .setPositiveButton("Continue") { _, _ -> showDeleteAccountConfirmationDialog() }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showDeleteAccountConfirmationDialog() {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 0, 48, 0)
+        }
+        val passwordInput = EditText(this).apply {
+            hint = "Current password"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val confirmationInput = EditText(this).apply {
+            hint = "Type DELETE to confirm"
+            inputType = InputType.TYPE_CLASS_TEXT
+        }
+        val isGoogleAccount = auth.currentUser?.providerData?.any { it.providerId == "google.com" } == true
+        if (!isGoogleAccount) {
+            container.addView(passwordInput)
+        }
+        container.addView(confirmationInput)
+
+        AlertDialog.Builder(this)
+            .setTitle("Confirm account deletion")
+            .setMessage("Enter DELETE exactly and confirm your identity.")
+            .setView(container)
+            .setPositiveButton("Delete account", null)
+            .setNegativeButton("Cancel", null)
+            .create()
+            .also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val confirmation = confirmationInput.text.toString().trim()
+                        if (!confirmation.equals("DELETE", ignoreCase = true)) {
+                            confirmationInput.error = "Type DELETE to confirm"
+                            return@setOnClickListener
+                        }
+                        dialog.dismiss()
+                        deleteAccount(
+                            password = if (isGoogleAccount) null else passwordInput.text.toString()
+                        )
+                    }
+                }
+                dialog.show()
+            }
+    }
+
+    private fun deleteAccount(password: String?) {
+        val token = sharedPrefs.getString("jwt_token", null)
+        if (token.isNullOrEmpty()) {
+            showLogin()
+            return
+        }
+
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitClient.apiService.deleteMyAccount(
+                    "Bearer $token",
+                    DeleteAccountPayload(password = password, confirmation_text = "DELETE")
+                )
+                if (response.isSuccessful && response.body()?.success == true) {
+                    try {
+                        auth.signOut()
+                        googleSignInClient.signOut()
+                    } catch (_: Exception) {
+                        // Local session cleanup still proceeds if provider sign-out fails.
+                    }
+                    sharedPrefs.edit().clear().apply()
+                    allTransactions = emptyList()
+                    allBudgets = emptyList()
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainActivity, "Your account has been deleted.", Toast.LENGTH_LONG).show()
+                        showLogin()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "Account deletion failed (${response.code()}).",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Could not delete account: ${e.localizedMessage ?: "network error"}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
     private fun performLogout() {
         try {
             auth.signOut()
@@ -1332,7 +1438,7 @@ class MainActivity : ComponentActivity() {
     private fun renderInsightsUI(data: InsightsSummaryData) {
         // Section 1: Spending Changes
         binding.containerSpendingChanges.removeAllViews()
-        val changes = data.spending_changes
+        val changes = data.spending_changes?.sortedByDescending { it.change_percent }?.take(5)
         if (changes.isNullOrEmpty()) {
             val emptyTv = TextView(this).apply {
                 text = "No historical spending changes calculated yet."
@@ -1373,7 +1479,7 @@ class MainActivity : ComponentActivity() {
 
         // Section 2: Anomalies
         binding.containerAnomalies.removeAllViews()
-        val anomalies = data.anomalies
+        val anomalies = data.anomalies?.take(5)
         if (anomalies.isNullOrEmpty()) {
             val emptyTv = TextView(this).apply {
                 text = "No unusual spending spikes detected this month. ✅"
@@ -1385,19 +1491,20 @@ class MainActivity : ComponentActivity() {
             for (a in anomalies) {
                 val cat = a["category"]?.toString() ?: "Spending Spike"
                 val amt = (a["amount"] as? Number)?.toDouble() ?: 0.0
-                val avg = (a["avg_amount"] as? Number)?.toDouble() ?: 0.0
+                val avg = ((a["avg"] ?: a["avg_amount"]) as? Number)?.toDouble() ?: 0.0
 
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
-                    setBackgroundColor(Color.parseColor("#3B0764")) // Purple Surface
+                    setBackgroundColor(Color.parseColor("#332A2923"))
                     setPadding(20, 14, 20, 14)
                     layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
                         setMargins(0, 0, 0, 10)
                     }
                 }
+                val isBudgetAlert = a["kind"]?.toString() == "budget"
                 val title = TextView(this).apply {
-                    text = "OVER BUDGET ($cat)"
-                    setTextColor(Color.parseColor("#EF4444"))
+                    text = if (isBudgetAlert) "OVER BUDGET ($cat)" else "SPENDING SPIKE ($cat)"
+                    setTextColor(if (isBudgetAlert) Color.parseColor("#EF4444") else Color.parseColor("#F59E0B"))
                     textSize = 13f
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
                 }
@@ -1463,9 +1570,7 @@ class MainActivity : ComponentActivity() {
         val spikes = debits.filter { it.amount >= (avgSpend * 2.0) && it.amount > 500.0 }
 
         val computedData = InsightsSummaryData(
-            spending_changes = categorySpendingMap.map { (cat, spent) ->
-                SpendingChangeItem(cat, 12.5, "up")
-            },
+            spending_changes = emptyList(),
             anomalies = spikes.map { tx ->
                 mapOf(
                     "category" to tx.category,

@@ -115,7 +115,7 @@
         android:layout_marginTop="10dp"
         android:max="100"
         android:progress="49"
-        android:progressDrawable="@drawable/bg_gradient_button" />
+        android:progressDrawable="@drawable/progress_budget" />
 
     <!-- Used Percentage & Edit Link Row -->
     <LinearLayout
