@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { transactionService } from '../services/api';
+import { parseSmsLocally } from '../utils/smsParser';
 import { 
   PlusCircle, Sparkles, MessageSquare, Landmark,
   DollarSign, Tag, Calendar, User,
@@ -89,7 +90,14 @@ const AddTransaction = () => {
     setParseFeedback({ type: '', msg: '' });
 
     try {
-      const data = await transactionService.ingestSMS(rawSMS, sender);
+      const payload = parseSmsLocally(rawSMS, sender);
+      if (!payload) {
+        setParsing(false);
+        setParseFeedback({ type: 'error', msg: 'Could not parse a whitelisted bank transaction from this SMS.' });
+        return;
+      }
+
+      const data = await transactionService.ingestSMS(payload);
       setParsing(false);
 
       if (data.success) {
@@ -323,7 +331,7 @@ const AddTransaction = () => {
 
           <div className="space-y-5 flex-grow flex flex-col justify-between">
             <div>
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Sender Code / Bank Keyword</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Bank sender ID</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Landmark className="w-4 h-4" />
@@ -332,14 +340,14 @@ const AddTransaction = () => {
                   type="text"
                   value={sender}
                   onChange={(e) => setSender(e.target.value)}
-                  placeholder="HDFCBK, SBI, ICICI"
+                  placeholder="HDFCBK, ICICIB, AXISBK"
                   className="block w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#16803C] focus:bg-white transition-all text-xs font-mono font-bold uppercase"
                 />
               </div>
             </div>
 
             <div className="flex-grow flex flex-col">
-              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Paste raw SMS content</label>
+              <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Paste bank SMS content</label>
               <div className="relative flex-grow">
                 <div className="absolute top-3.5 left-3.5 pointer-events-none text-slate-400">
                   <MessageSquare className="w-4 h-4" />

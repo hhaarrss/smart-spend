@@ -69,7 +69,6 @@ class TransactionResponse(TransactionBase):
     user_id: int
     hash_fingerprint: Optional[str] = None
     subcategory: Optional[str] = None
-    raw_sms: Optional[str] = None
     upi_ref: Optional[str] = None
     confidence: Optional[str] = None
     review_status: Optional[str] = "reviewed"
@@ -85,16 +84,6 @@ class TransactionSummaryResponse(BaseModel):
     daily: Dict[str, float] = Field(default_factory=dict, description="Daily spending/income aggregates.")
     monthly: Dict[str, float] = Field(default_factory=dict, description="Monthly spending/income aggregates.")
     yearly: Dict[str, float] = Field(default_factory=dict, description="Yearly spending/income aggregates.")
-
-
-class SMSRequest(BaseModel):
-    """Schema for single incoming SMS parsing requests."""
-    sms_text: str = Field(..., description="Raw SMS content sent from mobile client.")
-
-
-class BatchSMSRequest(BaseModel):
-    """Schema for batch incoming SMS parsing requests."""
-    sms_list: List[str] = Field(..., description="List of raw SMS contents.")
 
 
 class CorrectionRequest(BaseModel):

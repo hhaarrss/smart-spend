@@ -31,7 +31,6 @@ class Transaction(Base):
     category: Mapped[str] = mapped_column(String(100), default="Miscellaneous", server_default="Miscellaneous", nullable=False, index=True)
     merchant: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     subcategory: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    raw_sms: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     upi_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     source: Mapped[Optional[str]] = mapped_column(
         String(100), default="manual", nullable=True

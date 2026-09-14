@@ -36,15 +36,14 @@ def is_known_merchant(text: str) -> bool:
     return False
 
 
-def detect_p2p_transfer(merchant: Optional[str], raw_sms: Optional[str] = None, category: Optional[str] = None) -> Tuple[bool, Optional[str]]:
+def detect_p2p_transfer(merchant: Optional[str], category: Optional[str] = None) -> Tuple[bool, Optional[str]]:
     """
-    Determines if a transaction is a P2P transfer based on merchant handle, VPA patterns, and SMS phrasing.
+    Determines if a transaction is a P2P transfer based on merchant handle, VPA patterns, and category.
 
     Returns:
         Tuple[bool, Optional[str]]: (is_transfer, transfer_to_name)
     """
     merchant_str = (merchant or "").strip()
-    sms_str = (raw_sms or "").strip().lower()
 
     # Rule 1: Exclude known merchants immediately
     if merchant_str and is_known_merchant(merchant_str):
@@ -68,20 +67,7 @@ def detect_p2p_transfer(merchant: Optional[str], raw_sms: Optional[str] = None, 
         name = merchant_str.split("@")[0].replace(".", " ").replace("_", " ").title() if merchant_str else "Person"
         return True, name
 
-    # Rule 4: SMS phrasing check ("paid to", "sent to", "transferred to")
-    transfer_phrases = [
-        r"(?:paid|sent|transferred|credited)(?:\s+(?:rs\.?|inr|₹)?\s*[\d,]+\.?\d*)?\s+to\s+([A-Za-z0-9\s._\-]+?)(?:\s+on|\s+ref|\s+upi|\.|$)",
-        r"vpa\s+([a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+)"
-    ]
-
-    for pat in transfer_phrases:
-        match = re.search(pat, sms_str, re.IGNORECASE)
-        if match:
-            candidate = match.group(1).strip()
-            if candidate and not is_known_merchant(candidate):
-                return True, candidate.title()
-
-    # Rule 4: Explicit category match
+    # Rule 4: Explicit category or merchant match
     if merchant_str.lower() in ("transfer", "p2p", "peer to peer", "friend", "family"):
         return True, merchant_str.title()
 

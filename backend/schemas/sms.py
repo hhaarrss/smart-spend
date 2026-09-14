@@ -1,19 +1,23 @@
-"""
-Pydantic schemas for SMS Ingestion.
-"""
+"""Pydantic schemas for on-device parsed transaction ingestion."""
 
-from typing import Optional
-from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import Literal, Optional
+from pydantic import BaseModel, ConfigDict, Field
 from schemas.transaction import TransactionResponse
 
 
 class SMSIngestionRequest(BaseModel):
-    """
-    Schema for incoming raw SMS transaction ingestion.
-    """
+    """Structured transaction data parsed on-device; no SMS body is accepted."""
 
-    raw_sms: str = Field(..., description="The raw content of the SMS.")
-    sender: str = Field(..., description="The sender ID of the SMS (e.g. AD-HDFCBK).")
+    model_config = ConfigDict(extra="forbid")
+
+    amount: float = Field(..., gt=0, description="Transaction amount.")
+    transaction_type: Literal["debit", "credit"] = Field(..., description="Debit or credit.")
+    merchant_raw: Optional[str] = Field(None, max_length=255, description="Parsed merchant or payee name.")
+    bank_sender_id: Optional[str] = Field(None, max_length=50, description="Bank SMS sender ID.")
+    account_last4: Optional[str] = Field(None, max_length=4, description="Masked account suffix.")
+    date: datetime = Field(..., description="Transaction timestamp parsed on-device.")
+    upi_ref: Optional[str] = Field(None, max_length=100, description="UPI reference number.")
 
 
 class SMSIngestionResponse(BaseModel):

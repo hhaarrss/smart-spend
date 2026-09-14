@@ -264,25 +264,6 @@ def match_merchant_db(merchant_raw: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def find_known_merchant(raw_sms: Optional[str]) -> Optional[str]:
-    """Recover a known merchant when the bank parser returns no useful name."""
-    if not raw_sms:
-        return None
-
-    normalized_sms = normalize_name(raw_sms)
-    candidates = []
-    for merchant in MERCHANTS:
-        for name in [merchant.get("name", ""), *merchant.get("aliases", [])]:
-            normalized_name = normalize_name(name)
-            if normalized_name:
-                candidates.append((len(normalized_name), normalized_name, name))
-
-    for _, normalized_name, original_name in sorted(candidates, reverse=True):
-        if re.search(rf"(?<![A-Z0-9]){re.escape(normalized_name)}(?![A-Z0-9])", normalized_sms):
-            return original_name
-    return None
-
-
 def mcc_description_to_category(description: str) -> str:
     """
     Map MCC description to our app's category names.
@@ -400,16 +381,8 @@ def normalize_category_name(cat: Optional[str]) -> str:
     return CANONICAL_CATEGORY_MAP.get(key, cat.strip())
 
 
-def categorize_transaction(parsed: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """
-    Takes parsed SMS dict and runs through the priority cascade.
-    """
-    if not parsed:
-        return None
-
-    merchant_raw = parsed.get("merchant_raw")
-    if not merchant_raw or normalize_name(merchant_raw) in {"UNKNOWN", "UNKNOWN MERCHANT"}:
-        merchant_raw = find_known_merchant(parsed.get("raw"))
+def categorize_transaction(merchant_raw: Optional[str]) -> Dict[str, Any]:
+    """Run the categorization cascade using only the parsed merchant value."""
     category_result = None
 
     if merchant_raw:
@@ -425,9 +398,8 @@ def categorize_transaction(parsed: Optional[Dict[str, Any]]) -> Optional[Dict[st
     if category_result and "category" in category_result:
         category_result["category"] = normalize_category_name(category_result["category"])
 
-    enriched = {**parsed, **category_result}
-    enriched["categorized_at"] = datetime.utcnow().isoformat() + "Z"
-    return enriched
+    category_result["categorized_at"] = datetime.utcnow().isoformat() + "Z"
+    return category_result
 
 
 def process_upi_sms(sms: str) -> Optional[Dict[str, Any]]:
@@ -435,7 +407,9 @@ def process_upi_sms(sms: str) -> Optional[Dict[str, Any]]:
     Parse SMS and categorize in a single call.
     """
     parsed = parse_sms(sms)
-    return categorize_transaction(parsed)
+    if not parsed:
+        return None
+    return {**parsed, **categorize_transaction(parsed.get("merchant_raw"))}
 
 
 # ─────────────────────────────────────────────

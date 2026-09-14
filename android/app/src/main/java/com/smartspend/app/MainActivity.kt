@@ -217,6 +217,7 @@ class MainActivity : ComponentActivity() {
         binding.btnRefreshInsights.setOnClickListener { fetchInsightsData() }
         binding.btnLogoutProfile.setOnClickListener { showLogoutConfirmationDialog() }
         binding.btnDeleteAccountProfile.setOnClickListener { showDeleteAccountWarningDialog() }
+        binding.btnPrivacyPolicyProfile.setOnClickListener { showPrivacyPolicyDialog() }
     }
 
     private fun switchScreen(screenIndex: Int) {
@@ -823,10 +824,15 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             try {
-                val resp = RetrofitClient.apiService.ingestSms(
-                    "Bearer $token",
-                    SmsPayload(smsText, "AD-BANK")
-                )
+                val payload = SmsParser.parse(smsText, "AD-BANK")
+                if (payload == null) {
+                    runOnUiThread {
+                        Toast.makeText(this@MainActivity, "Could not parse a bank transaction from this SMS.", Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+
+                val resp = RetrofitClient.apiService.ingestSms("Bearer $token", payload)
                 runOnUiThread {
                     if (resp.code() == 401) {
                         handleUnauthorized()
@@ -873,18 +879,23 @@ class MainActivity : ComponentActivity() {
                     null, null, Telephony.Sms.DATE + " DESC"
                 )
 
+                var scanned = 0
                 var count = 0
                 cursor?.use {
                     val addressIdx = it.getColumnIndex(Telephony.Sms.ADDRESS)
                     val bodyIdx = it.getColumnIndex(Telephony.Sms.BODY)
 
-                    while (it.moveToNext() && count < 100) { // Sync last 100 SMS
+                    while (it.moveToNext() && scanned < 100) {
+                        scanned++
                         val sender = it.getString(addressIdx) ?: ""
                         val body = it.getString(bodyIdx) ?: ""
 
-                        if (SmsFilter.isTransactional(sender, body)) {
-                            RetrofitClient.apiService.ingestSms("Bearer $token", SmsPayload(body, sender))
-                            count++
+                        val payload = SmsParser.parse(body, sender)
+                        if (payload != null) {
+                            val response = RetrofitClient.apiService.ingestSms("Bearer $token", payload)
+                            if (response.isSuccessful && response.body()?.success == true) {
+                                count++
+                            }
                         }
                     }
                 }
@@ -1285,6 +1296,14 @@ class MainActivity : ComponentActivity() {
             .show()
     }
 
+    private fun showPrivacyPolicyDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("SmartSpend Privacy Policy")
+            .setMessage(PRIVACY_POLICY_PLACEHOLDER)
+            .setPositiveButton("Close", null)
+            .show()
+    }
+
     private fun showDeleteAccountConfirmationDialog() {
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1591,5 +1610,26 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val PAGE_SIZE = 10
+        private const val PRIVACY_POLICY_PLACEHOLDER = """
+Last updated: [DATE]
+Effective for: SmartSpend, developed by [YOUR NAME / COMPANY NAME]
+Developer contact: [your.email@example.com]
+
+SmartSpend helps users understand their spending by reading and categorizing bank transaction SMS alerts.
+
+With your permission, SmartSpend reads incoming SMS messages only from a whitelisted list of known bank sender IDs. SMS parsing happens locally on your device. The original SMS text is not sent to SmartSpend servers; the app sends only structured transaction details such as amount, debit or credit type, merchant or payee, masked account suffix, transaction date, bank sender ID, and UPI reference when available.
+
+SmartSpend also collects account information needed for sign-in, transaction and budget data you create or sync, and basic usage or crash diagnostics if enabled. [Confirm and specify analytics or crash SDKs before publishing.]
+
+We use this data to authenticate you, sync your account, categorize transactions, generate budgets and insights, respond to support requests, and keep the service secure. We do not use financial or SMS data for advertising, and we do not sell your data.
+
+Your data is stored in PostgreSQL behind the SmartSpend backend API. Data in transit is encrypted with HTTPS/TLS. Passwords are hashed with bcrypt, authentication uses JWT bearer tokens, and Google Sign-In is handled through Firebase Authentication.
+
+You can view, export, edit, recategorize, and delete your transaction data. You can permanently delete your account from Profile -> Account & Data -> Delete My Account. If you cannot access the app, email [your.email@example.com] or use [web deletion link URL].
+
+Permissions: SMS read/receive access is optional and used for bank transaction auto-logging. Internet access is required for account sync.
+
+SmartSpend is not directed at children under 13 or the applicable minimum age in your jurisdiction. Material policy changes will be reflected with an updated date and may be communicated in-app.
+"""
     }
 }

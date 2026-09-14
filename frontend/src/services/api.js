@@ -132,13 +132,10 @@ export const transactionService = {
   },
 
   /**
-   * Parses raw SMS content and ingests the transaction if unique.
+   * Ingests transaction fields parsed locally by the client.
    */
-  ingestSMS: async (rawSMS, sender) => {
-    const response = await api.post('/transactions/ingest-sms', {
-      raw_sms: rawSMS,
-      sender: sender,
-    });
+  ingestSMS: async (parsedSmsPayload) => {
+    const response = await api.post('/transactions/ingest-sms', parsedSmsPayload);
     return response.data; // Returns { success, transaction, message }
   },
 

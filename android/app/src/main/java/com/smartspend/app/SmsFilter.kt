@@ -3,10 +3,11 @@ package com.smartspend.app
 import java.util.Locale
 
 object SmsFilter {
-    private val bankKeywords = listOf(
-        "icici", "hdfc", "sbi", "axis", "kotak", "yes", "pnb", "indus", "canara",
-        "paytm", "pytm", "gpay", "bhim", "cred", "idfc", "union", "bob", "rbl",
-        "citi", "fed", "amex", "slice", "jupiter", "fi", "onecard", "niyo", "upi", "bank"
+    private val bankSenderIds = listOf(
+        "HDFCBK", "ICICIB", "SBIPSG", "SBIINB", "AXISBK", "KOTAKB", "YESBNK",
+        "PNBSMS", "BOBSMS", "CANBNK", "INDBNK", "IDFCFB", "RBLBNK", "CITIBK",
+        "AMEXIN", "ONECRD", "FEDBNK", "UNIONB", "PAYTMB", "GPAY", "BHIM",
+        "AD-BANK"
     )
 
     private val spamKeywords = listOf(
@@ -48,14 +49,8 @@ object SmsFilter {
             return false
         }
 
-        // 4. Must originate from a bank or mention an account / UPI / bank context
-        val isBankSender = bankKeywords.any { sLower.contains(it) }
-        val hasBankContext = bLower.contains("a/c") || bLower.contains("acct") || 
-                             bLower.contains("account") || bLower.contains("upi") || 
-                             bLower.contains("vpa") || bLower.contains("bank") ||
-                             bLower.contains("card")
-
-        return isBankSender || hasBankContext
+        // 4. Must originate from the known bank sender whitelist.
+        return bankSenderIds.any { sLower.contains(it.lowercase(Locale.ROOT)) }
     }
 }
 

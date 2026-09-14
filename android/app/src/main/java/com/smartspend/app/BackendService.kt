@@ -59,8 +59,13 @@ class TransactionListDeserializer : JsonDeserializer<PaginatedTransactionRespons
  * Payload for SMS ingestion endpoint.
  */
 data class SmsPayload(
-    val raw_sms: String,
-    val sender: String
+    val amount: Double,
+    val transaction_type: String,
+    val merchant_raw: String?,
+    val bank_sender_id: String?,
+    val account_last4: String?,
+    val date: String,
+    val upi_ref: String? = null
 )
 
 /**

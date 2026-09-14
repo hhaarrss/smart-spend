@@ -88,7 +88,6 @@ async def seed_database() -> None:
                 "category": "Salary",
                 "merchant": "TechCorp Pvt Ltd",
                 "source": "sms",
-                "raw_sms": "Credited Rs 95000.00 to A/C XX1234 on 01-08-2026 by TechCorp Pvt Ltd",
                 "date": datetime(2026, 8, 1, 9, 30, 0, tzinfo=timezone.utc),
             },
             {
@@ -97,7 +96,6 @@ async def seed_database() -> None:
                 "category": "Food",
                 "merchant": "Swiggy",
                 "source": "sms",
-                "raw_sms": "Paid Rs 580.00 to Swiggy via UPI ref 421098231",
                 "date": datetime(2026, 8, 2, 13, 15, 0, tzinfo=timezone.utc),
             },
             {
@@ -114,7 +112,6 @@ async def seed_database() -> None:
                 "category": "Shopping",
                 "merchant": "Amazon India",
                 "source": "sms",
-                "raw_sms": "Debited Rs 4800.00 at Amazon India on 04-08-2026",
                 "date": datetime(2026, 8, 4, 11, 45, 0, tzinfo=timezone.utc),
             },
             {
@@ -483,7 +480,6 @@ async def seed_database() -> None:
                 category=tx["category"],
                 merchant=tx["merchant"],
                 source=tx.get("source", "manual"),
-                raw_sms=tx.get("raw_sms"),
                 date=tx["date"],
             )
             session.add(tx_obj)

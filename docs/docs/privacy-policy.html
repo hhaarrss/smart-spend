@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — SmartSpend</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #1a1a1a; }
+  h1 { font-size: 28px; margin-bottom: 4px; }
+  h2 { font-size: 20px; margin-top: 36px; border-bottom: 1px solid #e5e5e5; padding-bottom: 6px; }
+  .updated { color: #666; font-size: 14px; margin-bottom: 32px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e5e5; font-size: 15px; }
+  a { color: #1e8e3e; }
+  footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid #e5e5e5; font-size: 13px; color: #888; }
+</style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+<p class="updated">Last updated: [DATE] &middot; Effective for: SmartSpend, developed by [YOUR NAME / COMPANY NAME]</p>
+
+<h2>1. Who we are</h2>
+<p>SmartSpend is an expense-tracking application for Android that helps users understand their spending by automatically reading and categorizing bank transaction SMS alerts.</p>
+<p><strong>Developer contact:</strong> <a href="mailto:smartspend4support@gmail.com">smartspend4support@gmail.com</a></p>
+
+<h2>2. What data we collect</h2>
+<h3>SMS content (with your permission)</h3>
+<p>If you grant SMS read permission, SmartSpend reads incoming SMS messages only from a whitelisted list of known bank sender IDs (e.g. HDFCBK, ICICIB, SBIPSG, AXISBK).</p>
+<p><strong>All SMS parsing happens locally, on your device.</strong> The message is never transmitted to our servers in its original form. Our app extracts only the following structured details on-device: transaction amount, transaction type (debit/credit), merchant or payee name, masked account number (last 4 digits only), and date. Only this structured data — never the original SMS text — is sent to our backend for categorization, storage, and analytics.</p>
+<p>We do not read, store, or transmit SMS messages from any sender that is not on this bank whitelist. Personal messages, OTPs from non-financial senders, and messages from unrecognized numbers are never accessed, processed, or stored — not on your device, and never on our servers.</p>
+
+<h3>Account information</h3>
+<p>When you create an account, we collect your phone number for verification (via one-time password). Passwords, if you use email/password sign-in, are never stored in plain text — they are hashed using bcrypt before storage.</p>
+
+<h3>Transaction and financial data</h3>
+<p>Transaction records you create manually, or that are derived from parsed SMS or uploaded bank statements, including amount, category, merchant, date, and masked account identifiers.</p>
+
+<h3>Usage data</h3>
+<p>Basic app usage and crash diagnostics may be collected to help us fix bugs and improve reliability.</p>
+
+<h2>3. How we use your data</h2>
+<ul>
+  <li>To automatically detect and categorize your transactions</li>
+  <li>To generate the spending analytics, budgets, and insights shown in the app</li>
+  <li>To authenticate you and keep your account secure</li>
+  <li>To respond to support requests</li>
+</ul>
+<p>We do <strong>not</strong> use your financial or SMS data for advertising, and we do <strong>not</strong> sell your data to third parties.</p>
+
+<h2>4. Data storage and security</h2>
+<ul>
+  <li>Your data is stored in a PostgreSQL database, accessed only through our backend API.</li>
+  <li>All data in transit between the app and our servers is encrypted using HTTPS/TLS.</li>
+  <li>Account passwords are hashed with bcrypt and never stored or transmitted in plain text.</li>
+  <li>Authentication uses JWT (JSON Web Token) bearer tokens; phone verification is handled via Firebase Authentication.</li>
+  <li>Account numbers are always stored and displayed in masked form (e.g. XX373) — full account numbers are never stored.</li>
+</ul>
+
+<h2>5. Data sharing</h2>
+<p>We do not share, sell, or rent your personal or financial data to third parties for marketing or advertising purposes. We may disclose data only:</p>
+<ul>
+  <li>When required by law, regulation, or legal process</li>
+  <li>To prevent fraud, security incidents, or abuse of the service</li>
+  <li>With service providers strictly necessary to operate the app (e.g. our cloud hosting provider, Firebase for authentication) — these providers only process data on our behalf</li>
+</ul>
+
+<h2>6. Your rights and controls</h2>
+<ul>
+  <li><strong>Access:</strong> view all your stored transaction and account data within the app.</li>
+  <li><strong>Export:</strong> export your transaction data as a CSV file from within the app.</li>
+  <li><strong>Correction:</strong> edit or recategorize any transaction at any time.</li>
+  <li><strong>Deletion:</strong> delete your account and all associated data at any time from <em>Profile &rarr; Privacy &amp; Data &rarr; Delete My Account</em>. If you're unable to access the app, you may request deletion via our <a href="delete-account.html">account deletion page</a>.</li>
+</ul>
+
+<h2>7. Permissions</h2>
+<table>
+  <tr><th>Permission</th><th>Why we need it</th><th>Optional?</th></tr>
+  <tr><td>SMS (READ_SMS, RECEIVE_SMS)</td><td>To detect bank transaction alerts and auto-log transactions</td><td>Yes — you can deny this and use manual entry instead</td></tr>
+  <tr><td>Internet</td><td>To sync your data with our backend so it's available across devices</td><td>No — required for core functionality</td></tr>
+</table>
+
+<h2>8. Children's privacy</h2>
+<p>SmartSpend is not directed at children under 13, and we do not knowingly collect data from children.</p>
+
+<h2>9. Changes to this policy</h2>
+<p>We may update this privacy policy from time to time. Material changes will be reflected with an updated "Last updated" date above.</p>
+
+<h2>10. Contact us</h2>
+<p>For any questions, concerns, or data requests related to this privacy policy, contact: <a href="mailto:smartspend4support@gmail.com">smartspend4support@gmail.com</a></p>
+
+<footer>
+  <a href="index.html">Home</a> &middot; <a href="terms.html">Terms of Service</a> &middot; <a href="support.html">Support</a> &middot; <a href="delete-account.html">Delete My Account</a>
+</footer>
+
+</body>
+</html>

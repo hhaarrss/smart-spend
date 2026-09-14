@@ -7,7 +7,6 @@ Handles transaction creation, filtering, duplicate prevention, and aggregate sum
 import calendar
 import hashlib
 import math
-import re
 from datetime import date, datetime, time, timezone
 from typing import Optional, List, Dict
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
@@ -30,12 +29,9 @@ from schemas.transaction import (
     MonthlyCategorySummaryResponse,
     NeedsReviewResponse,
     CategorizeRequest,
-    SMSRequest,
-    BatchSMSRequest,
     CorrectionRequest,
 )
 from schemas.sms import SMSIngestionRequest, SMSIngestionResponse
-from utils.sms_parser import parse_sms
 from utils.dependencies import get_current_user
 from utils.fingerprint import generate_fingerprint
 from utils.categories import CATEGORIES
@@ -43,9 +39,6 @@ from utils.transfer_detector import detect_p2p_transfer
 from utils.notifications import check_budget_and_alert
 from categorizer.transaction_categorizer import (
     categorize_transaction,
-    process_upi_sms,
-    process_batch,
-    find_known_merchant,
     normalize_name,
 )
 from services.transaction_aggregates import (
@@ -60,16 +53,12 @@ router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
 
 
-def categorize_parsed_sms(parsed: dict, raw_sms: str) -> dict:
+def categorize_parsed_sms(merchant_raw: Optional[str]) -> dict:
     """
-    Categorize a transaction after reliable bank-SMS extraction.
+    Categorize an on-device parsed transaction using its merchant value.
     Fallback/no-confidence matches are routed to Needs Review with review_status='needs_review'.
     """
-    enriched = categorize_transaction({
-        **parsed,
-        "raw": raw_sms,
-        "merchant_raw": parsed.get("merchant"),
-    }) or {}
+    enriched = categorize_transaction(merchant_raw)
 
     category = enriched.get("category") or "Needs Review"
     confidence = enriched.get("confidence") or "none"
@@ -83,7 +72,7 @@ def categorize_parsed_sms(parsed: dict, raw_sms: str) -> dict:
     return {
         "category": category,
         "subcategory": enriched.get("subcategory"),
-        "merchant": enriched.get("merchant") or parsed.get("merchant"),
+        "merchant": enriched.get("merchant") or merchant_raw or "Unknown Merchant",
         "source": source,
         "confidence": confidence,
         "review_status": review_status,
@@ -133,7 +122,7 @@ async def create_transaction(
         )
 
     # P2P Transfer detection
-    is_tx_transfer, recipient = detect_p2p_transfer(tx_in.merchant, raw_sms=None, category=tx_in.category)
+    is_tx_transfer, recipient = detect_p2p_transfer(tx_in.merchant, category=tx_in.category)
     final_cat = "Transfer" if is_tx_transfer else tx_in.category
 
     # Instantiate model
@@ -474,7 +463,7 @@ async def get_summary(
     "/ingest-sms",
     response_model=SMSIngestionResponse,
     status_code=status.HTTP_200_OK,
-    summary="Ingest a transaction via raw SMS",
+    summary="Ingest an on-device parsed transaction",
 )
 async def ingest_sms(
     sms_in: SMSIngestionRequest,
@@ -482,29 +471,21 @@ async def ingest_sms(
     db: AsyncSession = Depends(get_db)
 ) -> SMSIngestionResponse:
     """
-    Parses and processes an incoming SMS transaction alert.
+    Stores transaction data parsed on-device.
     Checks for duplicates using SHA-256 hash of (amount + date + account_last4).
 
     Args:
-        sms_in (SMSIngestionRequest): Inbound raw SMS message and sender.
+        sms_in (SMSIngestionRequest): Structured transaction fields from the mobile client.
         current_user (User): Authenticated user.
         db (AsyncSession): Database session.
 
     Returns:
         SMSIngestionResponse: Ingestion response with success, transaction object, and status message.
     """
-    parsed = parse_sms(sms_in.raw_sms, sms_in.sender)
-    if not parsed:
-        return SMSIngestionResponse(
-            success=False,
-            transaction=None,
-            message="Not a bank transaction SMS"
-        )
-
     # Categorize the merchant using categorization engine
-    cat_info = categorize_parsed_sms(parsed, sms_in.raw_sms)
+    cat_info = categorize_parsed_sms(sms_in.merchant_raw)
     category = cat_info["category"]
-    merchant = cat_info["merchant"] or parsed["merchant"]
+    merchant = cat_info["merchant"] or sms_in.merchant_raw or "Unknown Merchant"
     subcategory = cat_info.get("subcategory")
     source = cat_info.get("source") or "sms"
     confidence = cat_info.get("confidence") or "medium"
@@ -513,9 +494,9 @@ async def ingest_sms(
     # Generate the duplicate checker fingerprint
     fingerprint = generate_fingerprint(
         user_id=current_user.id,
-        amount=parsed["amount"],
-        date_val=parsed["date"],
-        account_last4=parsed["account_last4"],
+        amount=sms_in.amount,
+        date_val=sms_in.date,
+        account_last4=sms_in.account_last4,
     )
 
     # Check for duplicate
@@ -529,26 +510,26 @@ async def ingest_sms(
         )
 
     # Convert date to timezone-aware UTC if timezone-naive
-    tx_date = parsed["date"]
+    tx_date = sms_in.date
     if tx_date.tzinfo is None:
         tx_date = tx_date.replace(tzinfo=timezone.utc)
 
     # P2P Transfer detection
-    is_tx_transfer, recipient = detect_p2p_transfer(merchant, raw_sms=sms_in.raw_sms, category=category)
+    is_tx_transfer, recipient = detect_p2p_transfer(merchant, category=category)
     if is_tx_transfer:
         category = "Transfer"
 
     # Save transaction to database
     new_tx = Transaction(
         user_id=current_user.id,
-        amount=parsed["amount"],
-        type=parsed["type"],
+        amount=sms_in.amount,
+        type=sms_in.transaction_type,
         category=category,
         subcategory=subcategory,
         merchant=merchant,
-        raw_sms=sms_in.raw_sms,
-        bank=parsed["bank"],
-        account_last4=parsed["account_last4"],
+        upi_ref=sms_in.upi_ref,
+        bank=sms_in.bank_sender_id,
+        account_last4=sms_in.account_last4,
         date=tx_date,
         hash_fingerprint=fingerprint,
         source=source,
@@ -567,134 +548,8 @@ async def ingest_sms(
     return SMSIngestionResponse(
         success=True,
         transaction=new_tx,
-        message="SMS ingested successfully"
+        message="Transaction ingested successfully"
     )
-
-
-@router.post(
-    "/parse-sms",
-    response_model=TransactionResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="[Deprecated] Parse and save a single UPI transaction SMS (use /ingest-sms instead)",
-    deprecated=True,
-)
-async def parse_and_save_sms(
-    body: SMSRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> Transaction:
-    """
-    [DEPRECATED] Delegates to the canonical /transactions/ingest-sms endpoint.
-    Use POST /transactions/ingest-sms for all new integrations.
-
-    Args:
-        body (SMSRequest): Inbound raw SMS message text.
-        db (AsyncSession): The database session.
-        current_user (User): Authenticated user.
-
-    Raises:
-        HTTPException: 422 Unprocessable Entity if parsing fails or 409 if duplicate.
-
-    Returns:
-        Transaction: The saved or existing Transaction object.
-    """
-    response = await ingest_sms(
-        sms_in=SMSIngestionRequest(raw_sms=body.sms_text, sender="UNKNOWN"),
-        current_user=current_user,
-        db=db,
-    )
-    if not response.success or not response.transaction:
-        if "duplicate" in response.message.lower():
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=response.message
-            )
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=response.message
-        )
-    return response.transaction
-
-
-@router.post(
-    "/parse-sms/batch",
-    status_code=status.HTTP_201_CREATED,
-    summary="Parse and save a batch of historical transaction SMS",
-)
-async def parse_and_save_batch(
-    body: BatchSMSRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """
-    Processes multiple SMS messages at once, typically on mobile application first launch.
-    Automatically filters duplicates and records successful creations.
-
-    Args:
-        body (BatchSMSRequest): List of raw SMS strings.
-        db (AsyncSession): The database session.
-        current_user (User): Authenticated user.
-
-    Returns:
-        dict: Summary of parsed, saved, and skipped items.
-    """
-    results = process_batch(body.sms_list)
-    saved = 0
-
-    for result in results:
-        if not result or result.get("amount") is None:
-            continue
-
-        tx_date = datetime.now(timezone.utc)
-        if result.get("date"):
-            for fmt in ("%d-%m-%y", "%d-%m-%Y", "%d/%m/%y", "%d/%m/%Y", "%d%b%y", "%d %b %y", "%d %b %Y"):
-                try:
-                    cleaned_date = re.sub(r"\s+", " ", result["date"].strip())
-                    parsed_dt = datetime.strptime(cleaned_date, fmt)
-                    tx_date = parsed_dt.replace(tzinfo=timezone.utc)
-                    break
-                except ValueError:
-                    continue
-
-        fingerprint = generate_fingerprint(
-            user_id=current_user.id,
-            amount=result["amount"],
-            date_val=tx_date,
-            account_last4=result.get("account_last4"),
-        )
-
-        duplicate_query = select(Transaction).where(Transaction.hash_fingerprint == fingerprint)
-        dup_res = await db.execute(duplicate_query)
-        if dup_res.scalars().first():
-            continue
-
-        transaction = Transaction(
-            user_id=current_user.id,
-            amount=result["amount"],
-            merchant=result.get("merchant"),
-            category=result.get("category") or "Miscellaneous",
-            subcategory=result.get("subcategory"),
-            type=result.get("type") or "debit",
-            upi_ref=result.get("upi_ref"),
-            raw_sms=result.get("raw"),
-            source=result.get("source") or "sms",
-            confidence=result.get("confidence") or "none",
-            date=tx_date,
-            hash_fingerprint=fingerprint,
-            bank=result.get("bank"),
-        )
-        db.add(transaction)
-        saved += 1
-
-    if saved > 0:
-        await db.commit()
-
-    return {
-        "total_received": len(body.sms_list),
-        "total_saved": saved,
-        "skipped": len(body.sms_list) - saved,
-    }
-
 
 @router.patch(
     "/{transaction_id}/recategorize",

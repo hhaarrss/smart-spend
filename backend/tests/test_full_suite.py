@@ -10,7 +10,8 @@ from datetime import datetime
 from utils.sms_parser import parse_sms, parse_sms_date, clean_amount
 from categorizer.transaction_categorizer import categorize_transaction
 from utils.auth import hash_password, verify_password, create_access_token
-from schemas.transaction import TransactionCreate, SMSRequest, CorrectionRequest
+from schemas.transaction import TransactionCreate, CorrectionRequest
+from schemas.sms import SMSIngestionRequest
 from schemas.budget import BudgetLimitCreate
 from utils.fingerprint import generate_fingerprint
 
@@ -62,6 +63,20 @@ class TestSMSParserAndCategorizer(unittest.TestCase):
         self.assertEqual(dt.month, 5)
         self.assertEqual(dt.year, 2026)
 
+    def test_ingest_schema_rejects_raw_sms(self):
+        """The structured ingest payload must refuse an SMS body."""
+        with self.assertRaises(ValueError):
+            SMSIngestionRequest(
+                amount=450.0,
+                transaction_type="debit",
+                merchant_raw="Blinkit",
+                bank_sender_id="AD-HDFCBK",
+                account_last4="1234",
+                date=datetime(2026, 5, 27, 12, 0, 0),
+                upi_ref="123456789012",
+                raw_sms="HDFC Bank: Rs 450 debited at Blinkit",
+            )
+
     def test_icici_upi_debit(self):
         """Test Case 1: ICICI Bank UPI Debit."""
         sms = "ICICI Bank Acct XX1234 debited for Rs 450.00 on 27-May-26; Swiggy credited. UPI:412356789012. Call 18002662 for dispute."
@@ -72,7 +87,7 @@ class TestSMSParserAndCategorizer(unittest.TestCase):
         self.assertEqual(parsed["merchant"], "Swiggy")
         self.assertEqual(parsed["bank"], "ICICI")
 
-        enriched = categorize_transaction({**parsed, "raw": sms, "merchant_raw": parsed["merchant"]})
+        enriched = categorize_transaction(parsed["merchant"])
         self.assertEqual(enriched["category"], "Food & Dining")
 
     def test_icici_credit_card(self):
@@ -84,7 +99,7 @@ class TestSMSParserAndCategorizer(unittest.TestCase):
         self.assertEqual(parsed["type"], "debit")
         self.assertEqual(parsed["merchant"], "BARBEQUE NATION")
 
-        enriched = categorize_transaction({**parsed, "raw": sms, "merchant_raw": parsed["merchant"]})
+        enriched = categorize_transaction(parsed["merchant"])
         self.assertEqual(enriched["category"], "Food & Dining")
 
     def test_hdfc_debit_groceries(self):
@@ -95,7 +110,7 @@ class TestSMSParserAndCategorizer(unittest.TestCase):
         self.assertEqual(parsed["amount"], 1200.00)
         self.assertEqual(parsed["merchant"], "DMART SUPERMARKET")
 
-        enriched = categorize_transaction({**parsed, "raw": sms, "merchant_raw": parsed["merchant"]})
+        enriched = categorize_transaction(parsed["merchant"])
         self.assertEqual(enriched["category"], "Groceries")
 
     def test_axis_debit_travel(self):
@@ -106,14 +121,14 @@ class TestSMSParserAndCategorizer(unittest.TestCase):
         self.assertEqual(parsed["amount"], 8500.00)
         self.assertEqual(parsed["merchant"], "MAKEMYTRIP")
 
-        enriched = categorize_transaction({**parsed, "raw": sms, "merchant_raw": parsed["merchant"]})
+        enriched = categorize_transaction(parsed["merchant"])
         self.assertEqual(enriched["category"], "Travel & Hotels")
 
     def test_categorize_parsed_sms_needs_review(self):
         """Test low confidence transaction yields Needs Review and needs_review status."""
         from routers.transactions import categorize_parsed_sms
         parsed = {"amount": 500.0, "merchant": "XYZ UNKNOWN VENDOR 999", "type": "debit", "bank": "SBI"}
-        result = categorize_parsed_sms(parsed, "Rs 500 paid to XYZ UNKNOWN VENDOR 999")
+        result = categorize_parsed_sms(parsed["merchant"])
         self.assertEqual(result["category"], "Needs Review")
         self.assertEqual(result["review_status"], "needs_review")
 
@@ -121,7 +136,7 @@ class TestSMSParserAndCategorizer(unittest.TestCase):
         """Test high confidence merchant matches auto_categorized status."""
         from routers.transactions import categorize_parsed_sms
         parsed = {"amount": 3499.0, "merchant": "AMAZON", "type": "debit", "bank": "HDFC"}
-        result = categorize_parsed_sms(parsed, "HDFC Bank: Rs.3499.00 debited... Info: AMAZON")
+        result = categorize_parsed_sms(parsed["merchant"])
         self.assertEqual(result["category"], "Shopping")
         self.assertEqual(result["review_status"], "auto_categorized")
 
