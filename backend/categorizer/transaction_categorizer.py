@@ -349,6 +349,7 @@ def fallback_category(merchant_raw: Optional[str]) -> Dict[str, Any]:
 # ─────────────────────────────────────────────
 
 CANONICAL_CATEGORY_MAP = {
+    # Debit / Expense categories
     "food": "Food & Dining",
     "food & dining": "Food & Dining",
     "food and dining": "Food & Dining",
@@ -371,24 +372,124 @@ CANONICAL_CATEGORY_MAP = {
     "finance": "Finance & Insurance",
     "finance & insurance": "Finance & Insurance",
     "personal care": "Personal Care",
+    "rent": "Rent",
+    "transfer": "Transfer",
+
+    # 8 Canonical Credit categories
+    "salary": "Salary",
+    "refund": "Refund",
+    "reversed": "Refund",
+    "reversal": "Refund",
+    "interest": "Interest",
+    "interest credited": "Interest",
+    "bank deposit": "Bank Deposit",
+    "bank_deposit": "Bank Deposit",
+    "deposit": "Bank Deposit",
+    "investment return": "Investment Return",
+    "investment_return": "Investment Return",
+    "investment": "Investment Return",
+    "dividend": "Investment Return",
+    "reimbursement": "Reimbursement",
+    "cashback": "Cashback",
+    "reward": "Cashback",
+    "rewards": "Cashback",
+    "other credit": "Other Credit",
+    "other_credit": "Other Credit",
 }
 
 
+CREDIT_KEYWORD_RULES = [
+    (r"\b(salary|payroll|stipend|wages)\b", "Salary"),
+    (r"\b(refund|refunded|reversed|reversal)\b", "Refund"),
+    (r"\b(interest\s+credited|interest|int\.pd|int\s+credit)\b", "Interest"),
+    (r"\b(bank\s+deposit|cash\s+deposit|cdm\s+deposit|cheque\s+deposit|deposit)\b", "Bank Deposit"),
+    (r"\b(investment\s+return|investment\s+returns|dividend|dividends|redemption|mf\s+return)\b", "Investment Return"),
+    (r"\b(reimbursement|reimbursed|claim\s+approved|expense\s+claim)\b", "Reimbursement"),
+    (r"\b(cashback|cash\s+back|reward|rewards)\b", "Cashback"),
+    (r"\b(other\s+credit|credit\s+adjustment)\b", "Other Credit"),
+]
+
+
+def match_credit_keywords(merchant_raw: Optional[str]) -> Optional[Dict[str, Any]]:
+    """
+    Layer 4: Match credit-side keyword patterns against raw merchant / description text.
+
+    Args:
+        merchant_raw (Optional[str]): Raw merchant or transaction description string.
+
+    Returns:
+        Optional[Dict[str, Any]]: Categorization result dict if matched, None otherwise.
+    """
+    if not merchant_raw:
+        return None
+
+    raw_lower = merchant_raw.lower().strip()
+
+    for pattern, cat in CREDIT_KEYWORD_RULES:
+        if re.search(pattern, raw_lower, re.IGNORECASE):
+            return {
+                "category": cat,
+                "subcategory": None,
+                "merchant": merchant_raw,
+                "source": "keyword_rules",
+                "confidence": "high",
+            }
+
+    return None
+
+
 def normalize_category_name(cat: Optional[str]) -> str:
+    """
+    Normalizes a category string to its canonical title-cased name.
+
+    Args:
+        cat (Optional[str]): Input category string.
+
+    Returns:
+        str: Canonical category name, or 'Other' if empty/unrecognized.
+    """
     if not cat:
         return "Other"
     key = cat.strip().lower()
     return CANONICAL_CATEGORY_MAP.get(key, cat.strip())
 
 
-def categorize_transaction(merchant_raw: Optional[str]) -> Dict[str, Any]:
-    """Run the categorization cascade using only the parsed merchant value."""
+def categorize_transaction(merchant_raw: Optional[str | Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Run the categorization cascade using the parsed merchant value.
+
+    Priority layers:
+    1. User DB mapping (applied in authenticated API layer)
+    2. Credit keyword matching (Salary, Refund, Interest, Cashback, etc.)
+    3. Top 300 Indian Merchants DB matching
+    4. MCC Code matching
+    5. Fallback to Miscellaneous
+
+    Args:
+        merchant_raw (Optional[str | Dict[str, Any]]): Parsed merchant text/description,
+            or a parsed transaction dict from legacy scratch tests.
+
+    Returns:
+        Dict[str, Any]: Enriched categorization metadata.
+    """
+    if isinstance(merchant_raw, dict):
+        merchant_raw = (
+            merchant_raw.get("merchant_raw")
+            or merchant_raw.get("merchant")
+            or merchant_raw.get("raw")
+        )
+
     category_result = None
 
     if merchant_raw:
-        # User-specific mappings are applied by the authenticated API layer.
-        category_result = match_merchant_db(merchant_raw)
+        # Layer 2: Credit keyword matching
+        category_result = match_credit_keywords(merchant_raw)
 
+        # Layer 3: Match against Top 300 Indian Merchants DB
+        if not category_result:
+            category_result = match_merchant_db(merchant_raw)
+
+        # Layer 4: Match against MCC codes
         if not category_result:
             category_result = match_mcc_codes(merchant_raw)
 

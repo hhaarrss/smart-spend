@@ -34,12 +34,13 @@ from schemas.transaction import (
 from schemas.sms import SMSIngestionRequest, SMSIngestionResponse
 from utils.dependencies import get_current_user
 from utils.fingerprint import generate_fingerprint
-from utils.categories import CATEGORIES
+from utils.categories import CATEGORIES, validate_category_matches_type
 from utils.transfer_detector import detect_p2p_transfer
 from utils.notifications import check_budget_and_alert
 from categorizer.transaction_categorizer import (
     categorize_transaction,
     normalize_name,
+    normalize_category_name,
 )
 from services.transaction_aggregates import (
     get_category_totals,
@@ -119,6 +120,13 @@ async def create_transaction(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Transaction already exists (duplicate detected by fingerprint).",
+        )
+
+    # Validate category matches transaction type
+    if not validate_category_matches_type(tx_in.category, tx_in.type):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Category '{tx_in.category}' is incompatible with transaction type '{tx_in.type}'."
         )
 
     # P2P Transfer detection
@@ -231,8 +239,7 @@ async def get_monthly_category_summary(
         percentage = round((cat_total / total_spent) * 100, 1) if total_spent > 0 else 0.0
         cat_txs = [
             t for t in debits
-            if (t.category or "").strip().lower() == cat_name.lower() or
-            (t.category and normalize_name(t.category).lower() == cat_name.lower())
+            if normalize_category_name(t.category or "").lower() == cat_name.lower()
         ]
         tx_count = len(cat_txs)
 
@@ -519,6 +526,13 @@ async def ingest_sms(
     if is_tx_transfer:
         category = "Transfer"
 
+    # Validate category matches transaction type
+    if not validate_category_matches_type(category, sms_in.transaction_type):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Category '{category}' is incompatible with transaction type '{sms_in.transaction_type}'."
+        )
+
     # Save transaction to database
     new_tx = Transaction(
         user_id=current_user.id,
@@ -549,6 +563,72 @@ async def ingest_sms(
         success=True,
         transaction=new_tx,
         message="Transaction ingested successfully"
+    )
+
+
+@router.get(
+    "/merchants",
+    summary="List known merchants for the current user",
+)
+async def list_known_merchants(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[Dict[str, object]]:
+    """
+    Returns known merchants from learned merchant mappings plus transaction history.
+    This exposes existing merchant data for mobile UI; it does not add new aggregation logic.
+    """
+    merchant_rows: Dict[str, Dict[str, object]] = {}
+
+    mappings_res = await db.execute(
+        select(MerchantMapping).where(MerchantMapping.user_id == current_user.id)
+    )
+    for mapping in mappings_res.scalars().all():
+        display = mapping.display_name or mapping.merchant_key
+        key = display.strip().lower()
+        if not key:
+            continue
+        merchant_rows[key] = {
+            "name": display,
+            "category": normalize_category_name(mapping.category),
+            "count": int(mapping.count or 0),
+        }
+
+    tx_res = await db.execute(
+        select(
+            Transaction.merchant,
+            Transaction.category,
+            func.count(Transaction.id),
+        )
+        .where(
+            and_(
+                Transaction.user_id == current_user.id,
+                Transaction.merchant.is_not(None),
+                Transaction.merchant != "",
+            )
+        )
+        .group_by(Transaction.merchant, Transaction.category)
+    )
+    for merchant, category, count in tx_res.all():
+        display = (merchant or "").strip()
+        key = display.lower()
+        if not key:
+            continue
+        existing = merchant_rows.get(key)
+        if existing:
+            existing["count"] = int(existing.get("count", 0)) + int(count or 0)
+            if not existing.get("category"):
+                existing["category"] = normalize_category_name(category)
+        else:
+            merchant_rows[key] = {
+                "name": display,
+                "category": normalize_category_name(category),
+                "count": int(count or 0),
+            }
+
+    return sorted(
+        merchant_rows.values(),
+        key=lambda item: (-int(item.get("count", 0)), str(item.get("name", "")).lower()),
     )
 
 @router.patch(

@@ -31,3 +31,24 @@ class BudgetLimitResponse(BudgetLimitBase):
     user_id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class OverallBudgetLimitBase(BaseModel):
+    """Base schema for the user's independent overall monthly budget."""
+
+    monthly_limit: float = Field(..., gt=0, description="Overall monthly spending limit.")
+
+
+class OverallBudgetLimitCreate(OverallBudgetLimitBase):
+    """Schema for creating or updating the overall monthly budget."""
+
+    pass
+
+
+class OverallBudgetLimitResponse(OverallBudgetLimitBase):
+    """Schema representing the configured overall monthly budget."""
+
+    id: int
+    user_id: int
+
+    model_config = ConfigDict(from_attributes=True)

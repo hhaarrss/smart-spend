@@ -40,6 +40,22 @@ class BudgetStatus(BaseModel):
     is_family_limit: bool = False
 
 
+def get_budget_utilization_tone(percent_used: float) -> str:
+    """
+    Maps budget utilization to the UI severity contract.
+
+    Contract:
+    - <80% = normal
+    - 80-100% = amber
+    - >100% = red
+    """
+    if percent_used > 100.0:
+        return "red"
+    if percent_used >= 80.0:
+        return "amber"
+    return "normal"
+
+
 async def get_category_totals(
     db: AsyncSession,
     user_id: int,
@@ -210,6 +226,8 @@ async def get_budget_utilization(
     - Joins `budget_limits` with current month debits from `transactions`.
     - Applies normalize_category_name() to both budget limits and transactions.
     - Excludes EXCLUDED_CATEGORY_PLACEHOLDERS from category status lists.
+    - Ensures no category appears more than once per user/month.
+    - If duplicates exist pre-fix, merges by summing spent and taking min(limit).
 
     Args:
         db (AsyncSession): Active async database session.
@@ -218,7 +236,7 @@ async def get_budget_utilization(
         month (int): Target month (1-12).
 
     Returns:
-        List[BudgetStatus]: Status per configured category budget limit.
+        List[BudgetStatus]: Status per configured category budget limit without duplicate categories.
     """
     budgets_query = select(BudgetLimit).where(BudgetLimit.user_id == user_id)
     budgets_res = await db.execute(budgets_query)
@@ -227,38 +245,71 @@ async def get_budget_utilization(
     if not raw_budgets:
         return []
 
-    budgets_map: Dict[str, BudgetLimit] = {}
+    # Map normalized category -> consolidated budget metadata (min limit)
+    budgets_map: Dict[str, Dict[str, Any]] = {}
     for b in raw_budgets:
-        cat_key = normalize_category_name(b.category)
-        if cat_key.lower() in EXCLUDED_CATEGORY_PLACEHOLDERS:
+        raw_cat = (b.category or "").strip()
+        cat_key = normalize_category_name(raw_cat)
+        if (
+            not cat_key
+            or cat_key.lower() in EXCLUDED_CATEGORY_PLACEHOLDERS
+            or raw_cat.lower() in EXCLUDED_CATEGORY_PLACEHOLDERS
+        ):
             continue
         limit_val = float(b.monthly_limit) if b.monthly_limit else 0.0
-        if limit_val > 0:
-            if cat_key not in budgets_map or limit_val < float(budgets_map[cat_key].monthly_limit):
-                budgets_map[cat_key] = b
+        if limit_val <= 0:
+            continue
+        alert_val = float(b.alert_at_percent or 80.0)
+
+        if cat_key not in budgets_map:
+            budgets_map[cat_key] = {
+                "category": cat_key,
+                "limit": limit_val,
+                "alert_at_percent": alert_val,
+                "is_family_limit": bool(b.is_family_limit),
+            }
+        else:
+            # If duplicate budget limits exist pre-fix, merge by taking min(limit)
+            budgets_map[cat_key]["limit"] = min(budgets_map[cat_key]["limit"], limit_val)
+            budgets_map[cat_key]["alert_at_percent"] = min(budgets_map[cat_key]["alert_at_percent"], alert_val)
+            budgets_map[cat_key]["is_family_limit"] = (
+                budgets_map[cat_key]["is_family_limit"] or bool(b.is_family_limit)
+            )
 
     category_spent_map = await get_category_totals(db, user_id, year, month, include_transfers=False)
 
-    statuses: List[BudgetStatus] = []
-    for cat_norm, budget in budgets_map.items():
-        limit_val = float(budget.monthly_limit)
+    merged_statuses: Dict[str, BudgetStatus] = {}
+    for cat_norm, budget_info in budgets_map.items():
+        limit_val = budget_info["limit"]
         spent_val = category_spent_map.get(cat_norm, 0.0)
         pct_used = round((spent_val / limit_val) * 100.0, 1) if limit_val > 0 else 0.0
-        alert_thresh = float(budget.alert_at_percent or 80.0)
+        alert_thresh = budget_info["alert_at_percent"]
         is_alert = pct_used >= alert_thresh
 
-        statuses.append(
-            BudgetStatus(
+        if cat_norm in merged_statuses:
+            prev = merged_statuses[cat_norm]
+            new_spent = round(prev.spent + spent_val, 2)
+            new_limit = min(prev.limit, limit_val)
+            new_pct = round((new_spent / new_limit) * 100.0, 1) if new_limit > 0 else 0.0
+            merged_statuses[cat_norm] = BudgetStatus(
+                category=cat_norm,
+                spent=new_spent,
+                limit=new_limit,
+                percent_used=new_pct,
+                is_alert=new_pct >= alert_thresh or prev.is_alert,
+                is_family_limit=prev.is_family_limit or budget_info["is_family_limit"],
+            )
+        else:
+            merged_statuses[cat_norm] = BudgetStatus(
                 category=cat_norm,
                 spent=spent_val,
                 limit=limit_val,
                 percent_used=pct_used,
                 is_alert=is_alert,
-                is_family_limit=budget.is_family_limit,
+                is_family_limit=budget_info["is_family_limit"],
             )
-        )
 
-    return sorted(statuses, key=lambda x: x.percent_used, reverse=True)
+    return sorted(merged_statuses.values(), key=lambda x: x.percent_used, reverse=True)
 
 
 async def get_anomalies(

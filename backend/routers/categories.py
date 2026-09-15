@@ -1,21 +1,24 @@
 """
-Router for Expense Categories.
+Router for Transaction Categories (Debit and Credit).
 """
 
 from typing import Dict, List
 from fastapi import APIRouter
-from constants.categories import CANONICAL_CATEGORIES
+from constants.categories import DEBIT_CATEGORIES, CREDIT_CATEGORIES
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
 
-@router.get("", summary="Get canonical expense category list")
-@router.get("/", summary="Get canonical expense category list", include_in_schema=False)
+@router.get("", summary="Get canonical debit and credit category lists")
+@router.get("/", summary="Get canonical debit and credit category lists", include_in_schema=False)
 async def get_categories() -> Dict[str, List[str]]:
     """
-    Returns the single canonical list of expense categories.
+    Returns canonical category lists partitioned into debit and credit categories.
 
     Returns:
-        Dict[str, List[str]]: Object containing list of canonical categories.
+        Dict[str, List[str]]: Object containing 'debit' and 'credit' category lists.
     """
-    return {"categories": CANONICAL_CATEGORIES}
+    return {
+        "debit": DEBIT_CATEGORIES,
+        "credit": CREDIT_CATEGORIES,
+    }

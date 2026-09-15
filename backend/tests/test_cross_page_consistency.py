@@ -13,7 +13,11 @@ from sqlalchemy import delete, select
 from database import AsyncSessionLocal, engine, Base
 from models.user import User
 from models.transaction import Transaction
-from models.budget import BudgetLimit
+from models.budget import BudgetLimit, OverallBudgetLimit
+from models.merchant_mapping import MerchantMapping
+from routers.budget import set_overall_budget_limit
+from routers.transactions import get_monthly_category_summary, list_known_merchants
+from schemas.budget import OverallBudgetLimitCreate
 from services.transaction_aggregates import (
     get_category_totals,
     get_mom_change,
@@ -22,6 +26,7 @@ from services.transaction_aggregates import (
     get_monthly_overview,
     MIN_MEANINGFUL_BASELINE,
     EXCLUDED_CATEGORY_PLACEHOLDERS,
+    get_budget_utilization_tone,
 )
 
 
@@ -32,6 +37,9 @@ class TestCrossPageConsistency(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self):
         """Create a dedicated test user and seed test transactions and budget limits."""
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
         self.session = AsyncSessionLocal()
 
         # Clean up existing test user if present
@@ -40,8 +48,10 @@ class TestCrossPageConsistency(unittest.IsolatedAsyncioTestCase):
         user = res.scalar_one_or_none()
 
         if user:
+            await self.session.execute(delete(MerchantMapping).where(MerchantMapping.user_id == user.id))
             await self.session.execute(delete(Transaction).where(Transaction.user_id == user.id))
             await self.session.execute(delete(BudgetLimit).where(BudgetLimit.user_id == user.id))
+            await self.session.execute(delete(OverallBudgetLimit).where(OverallBudgetLimit.user_id == user.id))
             await self.session.execute(delete(User).where(User.id == user.id))
             await self.session.commit()
 
@@ -163,6 +173,8 @@ class TestCrossPageConsistency(unittest.IsolatedAsyncioTestCase):
         if hasattr(self, "user_id"):
             await self.session.execute(delete(Transaction).where(Transaction.user_id == self.user_id))
             await self.session.execute(delete(BudgetLimit).where(BudgetLimit.user_id == self.user_id))
+            await self.session.execute(delete(OverallBudgetLimit).where(OverallBudgetLimit.user_id == self.user_id))
+            await self.session.execute(delete(MerchantMapping).where(MerchantMapping.user_id == self.user_id))
             await self.session.execute(delete(User).where(User.id == self.user_id))
             await self.session.commit()
         await self.session.close()
@@ -265,19 +277,43 @@ class TestCrossPageConsistency(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(mom_overall)
         self.assertEqual(mom_overall, 65.3)
 
-    async def test_5_no_duplicate_category_cards_on_budget_limits(self):
+    async def test_no_duplicate_category_cards(self):
         """
-        Requirement 5:
-        Verify no category card is ever duplicated (e.g. 'Transportation' appearing twice)
-        on the Budget Limits page for a single user in a single month.
+        Requirement 5 / Acceptance:
+        Verify no category card is ever duplicated (e.g. 'Transportation' appearing multiple times
+        with casing/whitespace variations) on the Budget Limits page for a single user in a single month.
+        If duplicates exist pre-fix, merge by summing spent and taking min(limit).
         """
-        # Add duplicate category entries with casing/whitespace variations
+        # Add duplicate category entries with casing/whitespace variations and different limits
         duplicate_budgets = [
             BudgetLimit(user_id=self.user_id, category="Transportation", monthly_limit=3000.0, alert_at_percent=80.0),
             BudgetLimit(user_id=self.user_id, category="transportation", monthly_limit=3500.0, alert_at_percent=80.0),
-            BudgetLimit(user_id=self.user_id, category="  Transportation  ", monthly_limit=3000.0, alert_at_percent=80.0),
+            BudgetLimit(user_id=self.user_id, category="  Transportation  ", monthly_limit=2500.0, alert_at_percent=80.0),
         ]
         self.session.add_all(duplicate_budgets)
+
+        # Add debits for Transportation to verify spent is summed properly
+        trans_txs = [
+            Transaction(
+                user_id=self.user_id,
+                amount=1000.0,
+                type="debit",
+                category="Transportation",
+                merchant="Uber",
+                date=datetime(2026, 8, 10, 12, 0, 0, tzinfo=timezone.utc),
+                review_status="reviewed",
+            ),
+            Transaction(
+                user_id=self.user_id,
+                amount=500.0,
+                type="debit",
+                category="transportation",
+                merchant="Ola",
+                date=datetime(2026, 8, 14, 15, 0, 0, tzinfo=timezone.utc),
+                review_status="reviewed",
+            ),
+        ]
+        self.session.add_all(trans_txs)
         await self.session.commit()
 
         budgets = await get_budget_utilization(self.session, self.user_id, 2026, 8)
@@ -288,8 +324,78 @@ class TestCrossPageConsistency(unittest.IsolatedAsyncioTestCase):
         # Total count must equal unique count (no duplicate cards)
         self.assertEqual(len(category_names), len(unique_category_names))
         # 'Transportation' (or normalized canonical equivalent) must appear exactly once
-        transportation_cards = [name for name in category_names if "transportation" in name.lower()]
+        transportation_cards = [b for b in budgets if "transportation" in b.category.lower()]
         self.assertEqual(len(transportation_cards), 1)
+
+        trans_card = transportation_cards[0]
+        # Verify min(limit) was taken: min(3000, 3500, 2500) = 2500.0
+        self.assertEqual(trans_card.limit, 2500.0)
+        # Verify spent is summed: 1000.0 + 500.0 = 1500.0
+        self.assertEqual(trans_card.spent, 1500.0)
+        # Verify percent_used: (1500 / 2500) * 100 = 60.0%
+        self.assertEqual(trans_card.percent_used, 60.0)
+
+    async def test_monthly_category_summary_counts_canonical_categories(self):
+        """
+        Category list transaction_count must match every category's actual transaction count,
+        including categories whose raw transaction names normalize to canonical names.
+        """
+        summary = await get_monthly_category_summary(
+            month=8,
+            year=2026,
+            current_user=self.user,
+            db=self.session,
+        )
+
+        counts = {item.category: item.transaction_count for item in summary.categories}
+
+        self.assertEqual(counts["Food & Dining"], 2)
+        self.assertEqual(counts["Groceries"], 1)
+        self.assertEqual(counts["Shopping"], 1)
+
+    async def test_merchant_list_returns_canonical_category_names(self):
+        """Merchant list endpoint serializes normalized canonical category names only."""
+        self.session.add(
+            MerchantMapping(
+                user_id=self.user_id,
+                merchant_key="uber",
+                display_name="Uber",
+                category="travel",
+                count=2,
+            )
+        )
+        await self.session.commit()
+
+        merchants = await list_known_merchants(current_user=self.user, db=self.session)
+        categories = {item["category"] for item in merchants}
+
+        self.assertIn("Transportation", categories)
+        self.assertIn("Food & Dining", categories)
+        self.assertNotIn("travel", categories)
+        self.assertNotIn("Food", categories)
+
+    async def test_budget_utilization_tone_thresholds(self):
+        """Utilization colors map 79%, 85%, and 105% to normal, amber, and red."""
+        self.assertEqual(get_budget_utilization_tone(79.0), "normal")
+        self.assertEqual(get_budget_utilization_tone(85.0), "amber")
+        self.assertEqual(get_budget_utilization_tone(105.0), "red")
+
+    async def test_overall_budget_persists_independently_from_category_sum(self):
+        """Overall budget stores the user's manual value, not the sum of category limits."""
+        saved = await set_overall_budget_limit(
+            budget_in=OverallBudgetLimitCreate(monthly_limit=12345.0),
+            current_user=self.user,
+            db=self.session,
+        )
+        await self.session.commit()
+
+        self.assertEqual(float(saved.monthly_limit), 12345.0)
+        category_limits = (
+            await self.session.execute(
+                select(BudgetLimit.monthly_limit).where(BudgetLimit.user_id == self.user_id)
+            )
+        ).scalars().all()
+        self.assertNotEqual(float(saved.monthly_limit), sum(float(limit) for limit in category_limits))
 
 
 if __name__ == "__main__":

@@ -244,4 +244,21 @@ export const categoryService = {
   },
 };
 
+export const homeService = {
+  /**
+   * Fetches the consolidated Home Screen payload.
+   * Returns overview, recent 5 transactions, top 4 categories, top 4 budget entries.
+   *
+   * @param {number|null} month - Target month (1-12). Backend defaults to current month.
+   * @param {number|null} year  - Target year. Backend defaults to current year.
+   */
+  getHomeData: async (month = null, year = null) => {
+    const params = {};
+    if (month !== null) params.month = month;
+    if (year !== null) params.year = year;
+    const response = await api.get('/home', { params });
+    return response.data;
+  },
+};
+
 export default api;

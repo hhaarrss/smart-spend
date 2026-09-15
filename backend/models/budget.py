@@ -33,3 +33,17 @@ class BudgetLimit(Base):
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="budgets")
+
+
+class OverallBudgetLimit(Base):
+    """
+    Overall monthly budget limit configured independently from category budgets.
+    """
+
+    __tablename__ = "overall_budget_limits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+    )
+    monthly_limit: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)

@@ -12,15 +12,67 @@ from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models.budget import BudgetLimit
+from models.budget import BudgetLimit, OverallBudgetLimit
 from models.user import User
-from schemas.budget import BudgetLimitCreate, BudgetLimitResponse
+from schemas.budget import (
+    BudgetLimitCreate,
+    BudgetLimitResponse,
+    OverallBudgetLimitCreate,
+    OverallBudgetLimitResponse,
+)
 from utils.dependencies import get_current_user
 from services.transaction_aggregates import get_budget_utilization, BudgetStatus
 
 from categorizer.transaction_categorizer import normalize_category_name
 
 router = APIRouter(prefix="/budget", tags=["Budget Limits"])
+
+
+@router.get(
+    "/overall",
+    response_model=Optional[OverallBudgetLimitResponse],
+    summary="Retrieve the independent overall monthly budget limit",
+)
+async def get_overall_budget_limit(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[OverallBudgetLimit]:
+    """Returns the user's overall monthly budget limit, if configured."""
+    result = await db.execute(
+        select(OverallBudgetLimit).where(OverallBudgetLimit.user_id == current_user.id)
+    )
+    return result.scalars().first()
+
+
+@router.post(
+    "/overall",
+    response_model=OverallBudgetLimitResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Set or update the independent overall monthly budget limit",
+)
+async def set_overall_budget_limit(
+    budget_in: OverallBudgetLimitCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> OverallBudgetLimit:
+    """Creates or updates the user's overall monthly budget limit."""
+    result = await db.execute(
+        select(OverallBudgetLimit).where(OverallBudgetLimit.user_id == current_user.id)
+    )
+    existing = result.scalars().first()
+
+    if existing:
+        existing.monthly_limit = budget_in.monthly_limit
+        await db.flush()
+        return existing
+
+    new_limit = OverallBudgetLimit(
+        user_id=current_user.id,
+        monthly_limit=budget_in.monthly_limit,
+    )
+    db.add(new_limit)
+    await db.flush()
+    return new_limit
 
 
 @router.post(

@@ -140,6 +140,78 @@ class TestSMSParserAndCategorizer(unittest.TestCase):
         self.assertEqual(result["category"], "Shopping")
         self.assertEqual(result["review_status"], "auto_categorized")
 
+    def test_credit_salary_sms_keyword_matching(self):
+        """Test Credit SMS keyword matching for Salary."""
+        sms = "HDFC Bank: Rs 45000.00 credited to A/c XX9876 on 30-May-26. Info: TCS SALARY. Avl Bal Rs 52000.00"
+        parsed = parse_sms(sms, "AD-HDFCBK")
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed["type"], "credit")
+        self.assertEqual(parsed["amount"], 45000.0)
+
+        enriched = categorize_transaction(parsed["merchant"])
+        self.assertEqual(enriched["category"], "Salary")
+        self.assertEqual(enriched["source"], "keyword_rules")
+
+    def test_credit_refund_sms_keyword_matching(self):
+        """Test Credit SMS keyword matching for Refund."""
+        sms = "ICICI Bank: Rs 1499.00 credited to Acct XX4321 on 28-May-26. Info: AMAZON REFUND. UPI: 123456789012"
+        parsed = parse_sms(sms, "AD-ICICIB")
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed["type"], "credit")
+        self.assertEqual(parsed["amount"], 1499.0)
+
+        enriched = categorize_transaction(parsed["merchant"])
+        self.assertEqual(enriched["category"], "Refund")
+        self.assertEqual(enriched["source"], "keyword_rules")
+
+    def test_credit_cashback_sms_keyword_matching(self):
+        """Test Credit SMS keyword matching for Cashback."""
+        sms = "Rs.100.00 credited to A/c XX5678 on 29-May-26 towards GPAY CASHBACK. Ref 987654321"
+        parsed = parse_sms(sms, "AD-SBIBNK")
+        self.assertIsNotNone(parsed)
+        self.assertEqual(parsed["type"], "credit")
+        self.assertEqual(parsed["amount"], 100.0)
+
+        enriched = categorize_transaction(parsed["merchant"])
+        self.assertEqual(enriched["category"], "Cashback")
+        self.assertEqual(enriched["source"], "keyword_rules")
+
+
+class TestCategoryTypeValidation(unittest.TestCase):
+    """
+    Test suite for validate_category_matches_type constraint checks.
+    """
+
+    def test_validation_rejection_debit_category_on_credit_type(self):
+        """Reject when a debit category is assigned to a credit transaction."""
+        from utils.categories import validate_category_matches_type
+        # Debit categories assigned to credit type must fail
+        self.assertFalse(validate_category_matches_type("Food & Dining", "credit"))
+        self.assertFalse(validate_category_matches_type("Groceries", "credit"))
+        self.assertFalse(validate_category_matches_type("Shopping", "credit"))
+        self.assertFalse(validate_category_matches_type("Transportation", "credit"))
+        self.assertFalse(validate_category_matches_type("food", "credit"))
+
+    def test_validation_rejection_credit_category_on_debit_type(self):
+        """Reject when a credit category is assigned to a debit transaction."""
+        from utils.categories import validate_category_matches_type
+        # Credit categories assigned to debit type must fail
+        self.assertFalse(validate_category_matches_type("Salary", "debit"))
+        self.assertFalse(validate_category_matches_type("Refund", "debit"))
+        self.assertFalse(validate_category_matches_type("Cashback", "debit"))
+        self.assertFalse(validate_category_matches_type("Interest", "debit"))
+        self.assertFalse(validate_category_matches_type("salary", "debit"))
+
+    def test_get_categories_response_format(self):
+        """Test GET /categories structure has debit and credit lists with all 8 credit categories."""
+        from constants.categories import DEBIT_CATEGORIES, CREDIT_CATEGORIES
+        expected_credit = [
+            "Salary", "Refund", "Interest", "Bank Deposit",
+            "Investment Return", "Reimbursement", "Cashback", "Other Credit"
+        ]
+        self.assertEqual(CREDIT_CATEGORIES, expected_credit)
+        self.assertIn("Food & Dining", DEBIT_CATEGORIES)
+
 
 class TestSecurityUtilities(unittest.TestCase):
     """
@@ -192,6 +264,82 @@ class TestPydanticSchemas(unittest.TestCase):
         schema = BudgetLimitCreate(**budget_data)
         self.assertEqual(schema.monthly_limit, 5000.00)
         self.assertEqual(schema.alert_at_percent, 80.0)
+
+
+class TestMoMMeaningfulBaseline(unittest.IsolatedAsyncioTestCase):
+    """
+    Unit test suite for MoM baseline threshold guard (MIN_MEANINGFUL_BASELINE = 100.0).
+    """
+
+    async def test_mom_change_below_threshold_returns_none(self):
+        """When previous month spending is below MIN_MEANINGFUL_BASELINE (100.0), get_mom_change returns None."""
+        from unittest.mock import AsyncMock, MagicMock
+        from services.transaction_aggregates import get_mom_change, MIN_MEANINGFUL_BASELINE
+
+        self.assertEqual(MIN_MEANINGFUL_BASELINE, 100.0)
+
+        # Mock DB session
+        mock_db = AsyncMock()
+
+        # Mock current month txs: spent = 300.0
+        cur_tx = MagicMock()
+        cur_tx.amount = 300.0
+        cur_tx.category = "Food & Dining"
+        cur_res = MagicMock()
+        cur_res.scalars.return_value.all.return_value = [cur_tx]
+
+        # Mock previous month txs: spent = 50.0 (< 100.0 threshold)
+        prev_tx = MagicMock()
+        prev_tx.amount = 50.0
+        prev_tx.category = "Food & Dining"
+        prev_res = MagicMock()
+        prev_res.scalars.return_value.all.return_value = [prev_tx]
+
+        mock_db.execute.side_effect = [cur_res, prev_res]
+
+        result = await get_mom_change(
+            db=mock_db,
+            user_id=1,
+            year=2026,
+            month=8,
+            category="Food & Dining",
+        )
+        self.assertIsNone(result)
+
+    async def test_mom_change_above_threshold_returns_percentage(self):
+        """When previous month spending is >= MIN_MEANINGFUL_BASELINE (100.0), get_mom_change returns % change."""
+        from unittest.mock import AsyncMock, MagicMock
+        from services.transaction_aggregates import get_mom_change, MIN_MEANINGFUL_BASELINE
+
+        # Mock DB session
+        mock_db = AsyncMock()
+
+        # Mock current month txs: spent = 300.0
+        cur_tx = MagicMock()
+        cur_tx.amount = 300.0
+        cur_tx.category = "Food & Dining"
+        cur_res = MagicMock()
+        cur_res.scalars.return_value.all.return_value = [cur_tx]
+
+        # Mock previous month txs: spent = 200.0 (>= 100.0 threshold)
+        prev_tx = MagicMock()
+        prev_tx.amount = 200.0
+        prev_tx.category = "Food & Dining"
+        prev_res = MagicMock()
+        prev_res.scalars.return_value.all.return_value = [prev_tx]
+
+        mock_db.execute.side_effect = [cur_res, prev_res]
+
+        # ((300 - 200) / 200) * 100 = +50.0%
+        result = await get_mom_change(
+            db=mock_db,
+            user_id=1,
+            year=2026,
+            month=8,
+            category="Food & Dining",
+        )
+        self.assertIsNotNone(result)
+        self.assertEqual(result, 50.0)
 
 
 if __name__ == "__main__":

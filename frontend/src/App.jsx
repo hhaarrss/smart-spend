@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import AddTransaction from './pages/AddTransaction';
 import Budget from './pages/Budget';
 import Insights from './pages/Insights';
+import Home from './pages/Home';
 import { Calendar, Bell, LogOut } from 'lucide-react';
 
 /**
@@ -138,6 +139,17 @@ function App() {
                 </Layout>
               </ProtectedRoute>
             } 
+          />
+
+          <Route
+            path="/home"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Home />
+                </Layout>
+              </ProtectedRoute>
+            }
           />
 
           {/* Global Fallback Route */}

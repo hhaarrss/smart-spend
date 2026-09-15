@@ -145,7 +145,8 @@ data class TransactionCreatePayload(
     val type: String,
     val category: String,
     val merchant: String?,
-    val date: String
+    val date: String,
+    val notes: String? = null
 )
 
 /**
@@ -176,7 +177,9 @@ data class TransactionUpdatePayload(
 )
 
 data class CategoriesResponse(
-    val categories: List<String>
+    val categories: List<String> = emptyList(),
+    val debit: List<String> = emptyList(),
+    val credit: List<String> = emptyList()
 )
 
 data class FcmTokenPayload(
@@ -217,6 +220,12 @@ interface BackendService {
     ): Response<DeleteAccountResponse>
 
     /**
+     * Fetch consolidated Home screen data. Auth is bypassed by the backend while AUTH_STUB=true.
+     */
+    @GET("home")
+    suspend fun getHomeData(): Response<HomeData>
+
+    /**
      * Fetch transactions requiring user review/categorization.
      */
     @GET("transactions/needs-review")
@@ -248,6 +257,9 @@ interface BackendService {
      */
     @GET("categories")
     suspend fun getCategories(): Response<CategoriesResponse>
+
+    @GET("categories")
+    suspend fun getCategoryLists(): Response<CategoryListsResponse>
 
     /**
      * Partially edit a transaction (category, merchant, amount, date, notes).
@@ -302,6 +314,19 @@ interface BackendService {
         @Query("include_transfers") includeTransfers: Boolean? = null
     ): Response<PaginatedTransactionResponse>
 
+    @GET("transactions/")
+    suspend fun getTransactionsNoAuth(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 50,
+        @Query("month") month: Int? = null,
+        @Query("year") year: Int? = null,
+        @Query("start_date") startDate: String? = null,
+        @Query("end_date") endDate: String? = null,
+        @Query("category") category: String? = null,
+        @Query("type") type: String? = null,
+        @Query("include_transfers") includeTransfers: Boolean? = null
+    ): Response<PaginatedTransactionResponse>
+
     /**
      * Fetch monthly category spending summary with budget utilization.
      */
@@ -311,6 +336,15 @@ interface BackendService {
         @Query("month") month: Int,
         @Query("year") year: Int
     ): Response<MonthlyCategorySummaryResponse>
+
+    @GET("transactions/monthly-category-summary")
+    suspend fun getMonthlyCategorySummaryNoAuth(
+        @Query("month") month: Int,
+        @Query("year") year: Int
+    ): Response<MonthlyCategorySummaryResponse>
+
+    @GET("transactions/merchants")
+    suspend fun getMerchants(): Response<List<MerchantData>>
 
     /**
      * Fetch category totals summary for a given month (YYYY-MM).
@@ -329,6 +363,20 @@ interface BackendService {
         @Header("Authorization") token: String
     ): Response<List<BudgetLimitData>>
 
+    @GET("budget/")
+    suspend fun getBudgetsNoAuth(): Response<List<BudgetLimitData>>
+
+    @GET("budget/utilization")
+    suspend fun getBudgetUtilization(): Response<List<BudgetUtilizationData>>
+
+    @GET("budget/overall")
+    suspend fun getOverallBudget(): Response<OverallBudgetData?>
+
+    @POST("budget/overall")
+    suspend fun setOverallBudget(
+        @Body payload: OverallBudgetPayload
+    ): Response<OverallBudgetData>
+
     /**
      * Create or update category budget limit.
      */
@@ -338,12 +386,22 @@ interface BackendService {
         @Body payload: BudgetSetPayload
     ): Response<BudgetLimitData>
 
+    @POST("budget/")
+    suspend fun setBudgetNoAuth(
+        @Body payload: BudgetSetPayload
+    ): Response<BudgetLimitData>
+
     /**
      * Manually create a transaction.
      */
     @POST("transactions/")
     suspend fun createTransaction(
         @Header("Authorization") token: String,
+        @Body payload: TransactionCreatePayload
+    ): Response<TransactionData>
+
+    @POST("transactions/")
+    suspend fun createTransactionNoAuth(
         @Body payload: TransactionCreatePayload
     ): Response<TransactionData>
 
@@ -366,7 +424,8 @@ interface BackendService {
     ): Response<InsightsSummaryData>
 
     companion object {
-        private const val BASE_URL = "https://expense-tracker-pk4d.onrender.com/"
+        private val BASE_URL =
+            if (BuildConfig.DEV_SKIP_AUTH) "http://127.0.0.1:8000/" else "https://expense-tracker-pk4d.onrender.com/"
 
         /**
          * Creates a configured Retrofit BackendService instance with resilient timeouts.

@@ -179,18 +179,25 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
     # 3. Merchant / Payee Extraction
     merchant = "Unknown Merchant"
     merch_patterns = [
-        r"(?:to|at|info:)\s+([A-Za-z0-9\s._&\-]+?)(?:\s+on|\s+ref|\s+upi|\s+val|\.|$)",
-        r"(?:vpa|to)\s+([a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+)",
-        r"(?:from)\s+([A-Za-z0-9\s._&\-]+?)(?:\s+on|\s+ref|\s+upi|\.|$)",
-        r";?\s*([A-Za-z0-9\s._&\-]+?)\s+credited"
+        r";?\s*([A-Za-z0-9\s._&\-]+?)\s+credited",
+        r"(?:info:|narration:|remarks?:|towards)\s+([A-Za-z0-9\s._&\-]+?)(?:\s+on\b|\s+ref\b|\s+upi\b|\s+val\b|\.|$)",
+        r"(?:vpa)\s+([a-zA-Z0-9.\-_]+@[a-zA-Z0-9]+)",
+        r"(?:from|to|at)\s+([A-Za-z0-9\s._&\-]+?)(?:\s+on\b|\s+ref\b|\s+upi\b|\s+val\b|\.|$)"
     ]
-
 
     for pat in merch_patterns:
         match = re.search(pat, sms, re.IGNORECASE)
         if match:
             candidate = match.group(1).strip()
-            if candidate and len(candidate) > 2 and candidate.lower() not in ("bank", "account", "upi", "ref"):
+            candidate = re.sub(r"^(?:a\s+transaction\s+of|payment\s+of|txn\s+of)\s+", "", candidate, flags=re.IGNORECASE).strip()
+            candidate_lower = candidate.lower().strip()
+            # Reject pure amounts, currency strings, or generic banking tokens
+            is_amount = bool(re.search(r"^(?:rs\.?|inr|₹)\s*[\d,]+(?:\.\d+)?", candidate_lower) or re.search(r"^[\d,]+(?:\.\d+)?", candidate_lower))
+            is_generic = any(
+                candidate_lower == term or candidate_lower.startswith(term + " ") or candidate_lower.startswith(term + "/")
+                for term in ("bank", "account", "acct", "a/c", "upi", "ref", "card", "your", "avl bal", "balance", "txn", "transaction", "payment")
+            )
+            if candidate and len(candidate) > 2 and not is_amount and not is_generic:
                 merchant = candidate
                 break
 

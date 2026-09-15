@@ -69,6 +69,7 @@ from routers.insights import router as insights_router
 from routers.seed import router as seed_router
 from routers.categories import router as categories_router
 from routers.users import router as users_router
+from routers.home import router as home_router
 
 # Import database engine for startup check
 from database import engine
@@ -137,6 +138,7 @@ app.include_router(insights_router)
 app.include_router(seed_router)
 app.include_router(categories_router)
 app.include_router(users_router)
+app.include_router(home_router)
 
 
 @app.on_event("startup")
@@ -146,7 +148,7 @@ async def on_startup() -> None:
         from database import Base, AsyncSessionLocal
         from models.user import User
         from models.transaction import Transaction
-        from models.budget import BudgetLimit
+        from models.budget import BudgetLimit, OverallBudgetLimit
         from models.merchant_mapping import MerchantMapping
         from utils.auth import hash_password
         from sqlalchemy import select
