@@ -23,6 +23,8 @@ frontend/build/
 android/.gradle/
 android/local.properties
 android/app/release/
+android/smartspend-*.png
+android/window*.xml
 
 # Logs
 *.log

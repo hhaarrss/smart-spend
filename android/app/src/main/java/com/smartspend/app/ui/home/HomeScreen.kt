@@ -76,7 +76,8 @@ private sealed interface HomeUiState {
 fun HomeScreen(
     onAddTransaction: () -> Unit = {},
     onBudget: () -> Unit = {},
-    onCategories: () -> Unit = {}
+    onCategories: () -> Unit = {},
+    onTrends: () -> Unit = {}
 ) {
     var state by remember { mutableStateOf<HomeUiState>(HomeUiState.Loading) }
     var refreshKey by remember { mutableStateOf(0) }
@@ -114,7 +115,8 @@ fun HomeScreen(
                 is HomeUiState.Loaded -> HomeContent(
                     data = current.data,
                     onBudget = onBudget,
-                    onCategories = onCategories
+                    onCategories = onCategories,
+                    onTrends = onTrends
                 )
                 is HomeUiState.Error -> HomeError(
                     message = current.message,
@@ -129,7 +131,8 @@ fun HomeScreen(
 private fun HomeContent(
     data: HomeData,
     onBudget: () -> Unit,
-    onCategories: () -> Unit
+    onCategories: () -> Unit,
+    onTrends: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -138,7 +141,7 @@ private fun HomeContent(
     ) {
         item { TopBar(data.user.full_name, data.user.email) }
         item { HeroSection(data, onBudget) }
-        item { ModeButtons(onCategories) }
+        item { ModeButtons(onTrends = onTrends, onCategories = onCategories) }
         if (data.overview.needs_review_count > 0) {
             item { NeedsReviewPill(data.overview.needs_review_count) }
         }
@@ -263,9 +266,12 @@ private fun HeroSection(data: HomeData, onBudget: () -> Unit) {
 }
 
 @Composable
-private fun ModeButtons(onCategories: () -> Unit) {
+private fun ModeButtons(
+    onTrends: () -> Unit,
+    onCategories: () -> Unit
+) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        FilterChip(selected = true, onClick = onCategories, label = { Text("Trends") })
+        FilterChip(selected = false, onClick = onTrends, label = { Text("Trends") })
         FilterChip(selected = false, onClick = onCategories, label = { Text("Categories") })
     }
 }

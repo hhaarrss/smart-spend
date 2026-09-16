@@ -44,6 +44,7 @@ import com.smartspend.app.ui.addtransaction.AddTransactionScreen
 import com.smartspend.app.ui.budget.BudgetScreen
 import com.smartspend.app.ui.categories.CategoriesScreen
 import com.smartspend.app.ui.home.HomeScreen
+import com.smartspend.app.ui.trends.TrendsScreen
 import com.smartspend.app.ui.theme.SmartSpendTheme
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -158,11 +159,16 @@ class MainActivity : ComponentActivity() {
                         DevRoute.Home -> HomeScreen(
                             onAddTransaction = { route = DevRoute.AddTransaction },
                             onBudget = { route = DevRoute.Budget },
-                            onCategories = { route = DevRoute.Categories }
+                            onCategories = { route = DevRoute.Categories },
+                            onTrends = { route = DevRoute.Trends }
                         )
                         DevRoute.AddTransaction -> AddTransactionScreen(onBack = { route = DevRoute.Home })
                         DevRoute.Budget -> BudgetScreen(onBack = { route = DevRoute.Home })
                         DevRoute.Categories -> CategoriesScreen(onBack = { route = DevRoute.Home })
+                        DevRoute.Trends -> TrendsScreen(
+                            onBack = { route = DevRoute.Home },
+                            onBudget = { route = DevRoute.Budget }
+                        )
                     }
                 }
             }
@@ -1488,7 +1494,10 @@ class MainActivity : ComponentActivity() {
     private fun renderInsightsUI(data: InsightsSummaryData) {
         // Section 1: Spending Changes
         binding.containerSpendingChanges.removeAllViews()
-        val changes = data.spending_changes?.sortedByDescending { it.change_percent }?.take(5)
+        val changes = data.spending_changes
+            ?.filter { !it.not_enough_data && it.change_percent != null }
+            ?.sortedByDescending { it.change_percent ?: 0.0 }
+            ?.take(5)
         if (changes.isNullOrEmpty()) {
             val emptyTv = TextView(this).apply {
                 text = "No historical spending changes calculated yet."
@@ -1515,7 +1524,7 @@ class MainActivity : ComponentActivity() {
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
                 }
                 val pct = TextView(this).apply {
-                    text = "${if (c.direction == "up") "+" else "-"}%.1f%%".format(c.change_percent)
+                    text = "${if (c.direction == "up") "+" else "-"}%.1f%%".format(c.change_percent ?: 0.0)
                     setTextColor(if (c.direction == "up") Color.parseColor("#EF4444") else Color.parseColor("#10B981"))
                     textSize = 13f
                     typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -1645,7 +1654,8 @@ class MainActivity : ComponentActivity() {
             Home,
             AddTransaction,
             Budget,
-            Categories
+            Categories,
+            Trends
         }
         private const val PRIVACY_POLICY_PLACEHOLDER = """
 Last updated: [DATE]

@@ -5,7 +5,7 @@ SQLAlchemy ORM model for user-specific Merchant Mappings (Learning Engine).
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 from sqlalchemy import Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from sqlalchemy.sql import func
 from database import Base
 
@@ -38,3 +38,14 @@ class MerchantMapping(Base):
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="merchant_mappings")
+
+    @validates("category")
+    def validate_category(self, key: str, value: Optional[str]) -> str:
+        """
+        Validates and normalizes category name at write time to ensure canonical values.
+        """
+        from categorizer.transaction_categorizer import normalize_category_name
+        if not value:
+            return "Other"
+        return normalize_category_name(value)
+

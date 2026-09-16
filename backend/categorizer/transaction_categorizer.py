@@ -355,6 +355,10 @@ CANONICAL_CATEGORY_MAP = {
     "food and dining": "Food & Dining",
     "dining": "Food & Dining",
     "travel": "Transportation",
+    "travel & hotels": "Travel & Hotels",
+    "travel and hotels": "Travel & Hotels",
+    "hotels": "Travel & Hotels",
+    "hotel": "Travel & Hotels",
     "transportation": "Transportation",
     "cab": "Transportation",
     "fuel": "Fuel",
@@ -374,6 +378,10 @@ CANONICAL_CATEGORY_MAP = {
     "personal care": "Personal Care",
     "rent": "Rent",
     "transfer": "Transfer",
+    "miscellaneous": "Other",
+    "other": "Other",
+    "needs review": "Needs Review",
+    "needs_review": "Needs Review",
 
     # 8 Canonical Credit categories
     "salary": "Salary",

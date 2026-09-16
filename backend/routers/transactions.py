@@ -131,7 +131,7 @@ async def create_transaction(
 
     # P2P Transfer detection
     is_tx_transfer, recipient = detect_p2p_transfer(tx_in.merchant, category=tx_in.category)
-    final_cat = "Transfer" if is_tx_transfer else tx_in.category
+    final_cat = "Transfer" if is_tx_transfer else normalize_category_name(tx_in.category)
 
     # Instantiate model
     new_tx = Transaction(
@@ -538,7 +538,7 @@ async def ingest_sms(
         user_id=current_user.id,
         amount=sms_in.amount,
         type=sms_in.transaction_type,
-        category=category,
+        category=normalize_category_name(category),
         subcategory=subcategory,
         merchant=merchant,
         upi_ref=sms_in.upi_ref,
@@ -673,7 +673,7 @@ async def recategorize_transaction(
             detail="Transaction not found"
         )
 
-    transaction.category = body.new_category
+    transaction.category = normalize_category_name(body.new_category)
     transaction.subcategory = body.subcategory
     transaction.source = "user_correction"
     transaction.confidence = "high"
@@ -691,7 +691,7 @@ async def recategorize_transaction(
     existing_mapping = mapping_res.scalars().first()
 
     if existing_mapping:
-        existing_mapping.category = body.new_category
+        existing_mapping.category = normalize_category_name(body.new_category)
         existing_mapping.subcategory = body.subcategory
         existing_mapping.display_name = body.display_name or body.merchant_raw
         existing_mapping.count += 1
@@ -699,7 +699,7 @@ async def recategorize_transaction(
         new_mapping = MerchantMapping(
             user_id=current_user.id,
             merchant_key=merchant_key,
-            category=body.new_category,
+            category=normalize_category_name(body.new_category),
             subcategory=body.subcategory,
             display_name=body.display_name or body.merchant_raw,
             count=1,
@@ -708,17 +708,11 @@ async def recategorize_transaction(
 
     await db.commit()
 
-    # Save correction synchronously (local file writes)
-    save_user_correction(
-        merchant_raw=body.merchant_raw,
-        new_category=body.new_category,
-        subcategory=body.subcategory,
-        display_name=body.display_name,
-    )
+    # Learning is handled directly in database via MerchantMapping table above
 
     return {
         "transaction_id": transaction_id,
-        "category": body.new_category,
+        "category": normalize_category_name(body.new_category),
         "subcategory": body.subcategory,
         "review_status": "reviewed",
         "message": "Category updated and correction saved ✅",
@@ -768,7 +762,7 @@ async def update_transaction_fields(
         )
 
     if body.category is not None:
-        transaction.category = body.category
+        transaction.category = normalize_category_name(body.category)
         transaction.review_status = body.review_status or "reviewed"
         transaction.source = "user_correction"
         transaction.confidence = "high"
@@ -778,7 +772,7 @@ async def update_transaction_fields(
         try:
             save_user_correction(
                 merchant_raw=merchant_name,
-                new_category=body.category,
+                new_category=normalize_category_name(body.category),
                 subcategory=body.subcategory,
                 display_name=merchant_name,
             )
@@ -824,7 +818,7 @@ async def edit_transaction(
         )
 
     if updates.category is not None:
-        transaction.category = updates.category
+        transaction.category = normalize_category_name(updates.category)
     if updates.merchant is not None:
         transaction.merchant = updates.merchant
     if updates.amount is not None:
@@ -938,7 +932,7 @@ async def categorize_transaction_item(
             detail="Not authorized to edit this transaction"
         )
 
-    req_category = payload.target_category
+    req_category = normalize_category_name(payload.target_category)
     # Validate category against canonical list
     cat_match = next((c for c in CATEGORIES if c.lower() == req_category.lower()), None)
     if not cat_match:

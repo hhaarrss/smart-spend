@@ -154,8 +154,9 @@ data class TransactionCreatePayload(
  */
 data class SpendingChangeItem(
     val category: String,
-    val change_percent: Double,
-    val direction: String
+    val change_percent: Double? = null,
+    val direction: String? = null,
+    val not_enough_data: Boolean = false
 )
 
 /**
@@ -422,6 +423,9 @@ interface BackendService {
     suspend fun getInsightsSummary(
         @Header("Authorization") token: String
     ): Response<InsightsSummaryData>
+
+    @GET("insights/summary")
+    suspend fun getInsightsSummaryNoAuth(): Response<InsightsSummaryData>
 
     companion object {
         private val BASE_URL =

@@ -63,11 +63,20 @@ async def get_insights_summary(
             seen_cats.add(cat_norm.lower())
 
             change = await compare_month_spending(current_user.id, cat_norm, db)
-            if change is not None and change != 0.0:
+            if change is None:
+                # MIN_MEANINGFUL_BASELINE: never emit an exploding % for a tiny prior month.
+                spending_changes.append({
+                    "category": cat_norm,
+                    "change_percent": None,
+                    "direction": "none",
+                    "not_enough_data": True,
+                })
+            elif change != 0.0:
                 spending_changes.append({
                     "category": cat_norm,
                     "change_percent": abs(change),
-                    "direction": "up" if change > 0 else "down"
+                    "direction": "up" if change > 0 else "down",
+                    "not_enough_data": False,
                 })
 
 

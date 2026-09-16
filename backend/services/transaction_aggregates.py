@@ -102,6 +102,8 @@ async def get_category_totals(
 
     totals: Dict[str, float] = {}
     for tx in debits:
+        # Defensive fallback: Transactions are normalized at write time, but we retain
+        # read-time normalization here to guard against any legacy or un-migrated records.
         raw_cat = (tx.category or "").strip()
         norm_cat = normalize_category_name(raw_cat)
         if norm_cat.lower() in EXCLUDED_CATEGORY_PLACEHOLDERS:
@@ -188,6 +190,7 @@ async def get_mom_change(
         if target_norm in EXCLUDED_CATEGORY_PLACEHOLDERS:
             return None
 
+        # Defensive fallback: Retain normalize_category_name() comparison to safely handle legacy data
         cur_spent = sum(
             float(tx.amount) for tx in cur_txs
             if normalize_category_name(tx.category or "").lower() == target_norm
