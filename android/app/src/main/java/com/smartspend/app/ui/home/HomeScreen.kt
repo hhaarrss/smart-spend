@@ -6,6 +6,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -77,7 +78,8 @@ fun HomeScreen(
     onAddTransaction: () -> Unit = {},
     onBudget: () -> Unit = {},
     onCategories: () -> Unit = {},
-    onTrends: () -> Unit = {}
+    onTrends: () -> Unit = {},
+    onAccount: () -> Unit = {}
 ) {
     var state by remember { mutableStateOf<HomeUiState>(HomeUiState.Loading) }
     var refreshKey by remember { mutableStateOf(0) }
@@ -116,7 +118,8 @@ fun HomeScreen(
                     data = current.data,
                     onBudget = onBudget,
                     onCategories = onCategories,
-                    onTrends = onTrends
+                    onTrends = onTrends,
+                    onAccount = onAccount
                 )
                 is HomeUiState.Error -> HomeError(
                     message = current.message,
@@ -132,14 +135,15 @@ private fun HomeContent(
     data: HomeData,
     onBudget: () -> Unit,
     onCategories: () -> Unit,
-    onTrends: () -> Unit
+    onTrends: () -> Unit,
+    onAccount: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item { TopBar(data.user.full_name, data.user.email) }
+        item { TopBar(data.user.full_name, data.user.email, onAccount) }
         item { HeroSection(data, onBudget) }
         item { ModeButtons(onTrends = onTrends, onCategories = onCategories) }
         if (data.overview.needs_review_count > 0) {
@@ -177,7 +181,7 @@ private fun HomeContent(
 }
 
 @Composable
-private fun TopBar(fullName: String?, email: String?) {
+private fun TopBar(fullName: String?, email: String?, onAccount: () -> Unit) {
     val displayName = fullName?.takeIf { it.isNotBlank() }
         ?: email?.substringBefore("@")?.replaceFirstChar { it.titlecase(Locale.getDefault()) }
         ?: "SmartSpend"
@@ -191,7 +195,8 @@ private fun TopBar(fullName: String?, email: String?) {
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF1F8A70)),
+                .background(Color(0xFF1F8A70))
+                .clickable { onAccount() },
             contentAlignment = Alignment.Center
         ) {
             Text(initial, color = Color.White, fontWeight = FontWeight.Bold)

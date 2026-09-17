@@ -9,6 +9,8 @@ import android.os.Build
 import android.provider.Telephony
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.smartspend.app.sms.BankSenderWhitelist
+import com.smartspend.app.sms.SmsTransactionParser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -17,7 +19,9 @@ import org.json.JSONObject
 
 /**
  * BroadcastReceiver that intercepts incoming SMS messages from whitelisted bank senders,
- * parses them locally, and forwards only structured transaction fields to the backend.
+ * parses them locally using SmsTransactionParser, and forwards only structured transaction fields to the backend.
+ *
+ * Raw SMS text is never transmitted or stored.
  *
  * Includes an Offline Queue to retry failed SMS syncs when internet connectivity restores,
  * and posts a native status bar Notification on successful sync.
@@ -35,22 +39,24 @@ class SmsReceiver : BroadcastReceiver() {
 
                 Log.d("SmsReceiver", "Received SMS from: $sender")
 
-                if (isTransactionalSms(sender, messageBody)) {
-                    val payload = SmsParser.parse(messageBody, sender)
-                    if (payload != null) {
-                        Log.d("SmsReceiver", "Transactional SMS detected! Forwarding structured payload...")
-                        sendToBackend(context, payload)
-                    } else {
-                        Log.d("SmsReceiver", "SMS ignored because parsing did not produce a transaction")
-                    }
+                if (!BankSenderWhitelist.isWhitelisted(sender)) {
+                    Log.d("SmsReceiver", "SMS ignored (sender not in bank whitelist): $sender")
+                    continue
+                }
+
+                val parsed = SmsTransactionParser.parse(messageBody, sender)
+                if (parsed != null) {
+                    Log.d("SmsReceiver", "Transactional SMS detected! Forwarding structured payload on-device...")
+                    sendToBackend(context, parsed.toSmsPayload())
                 } else {
-                    Log.d("SmsReceiver", "SMS ignored (not a bank/transactional SMS)")
+                    Log.d("SmsReceiver", "SMS ignored because parsing did not produce a valid transaction")
                 }
             }
         }
     }
 
-    private fun isTransactionalSms(sender: String, body: String): Boolean = SmsFilter.isTransactional(sender, body)
+    private fun isTransactionalSms(sender: String, body: String): Boolean =
+        BankSenderWhitelist.isWhitelisted(sender) && SmsTransactionParser.parse(body, sender) != null
 
     private fun sendToBackend(context: Context, payload: SmsPayload) {
         val sharedPrefs = context.getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)

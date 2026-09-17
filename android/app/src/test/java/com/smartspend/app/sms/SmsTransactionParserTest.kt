@@ -166,4 +166,16 @@ class SmsTransactionParserTest {
         assertFalse("SmsPayload must NOT have rawSms field", fieldNames.contains("rawSms"))
         assertFalse("SmsPayload must NOT have body field", fieldNames.contains("body"))
     }
+
+    @Test
+    fun testSmsParserFacadeDelegation() {
+        val sender = "AD-HDFCBK"
+        val sms = "HDFC Bank: Rs.1200.00 debited from A/c XX5678 on 27-05-26. Info: DMART SUPERMARKET. Avl Bal: Rs.15340.00"
+        val payload = com.smartspend.app.SmsParser.parse(sms, sender)
+        assertNotNull(payload)
+        assertEquals(1200.00, payload!!.amount, 0.001)
+        assertEquals("debit", payload.transaction_type)
+        assertEquals("DMART SUPERMARKET", payload.merchant_raw)
+        assertEquals("5678", payload.account_last4)
+    }
 }

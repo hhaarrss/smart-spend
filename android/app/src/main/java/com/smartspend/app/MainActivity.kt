@@ -44,6 +44,7 @@ import com.smartspend.app.ui.addtransaction.AddTransactionScreen
 import com.smartspend.app.ui.budget.BudgetScreen
 import com.smartspend.app.ui.categories.CategoriesScreen
 import com.smartspend.app.ui.home.HomeScreen
+import com.smartspend.app.ui.account.AccountScreen
 import com.smartspend.app.ui.trends.TrendsScreen
 import com.smartspend.app.ui.theme.SmartSpendTheme
 import java.text.SimpleDateFormat
@@ -160,7 +161,8 @@ class MainActivity : ComponentActivity() {
                             onAddTransaction = { route = DevRoute.AddTransaction },
                             onBudget = { route = DevRoute.Budget },
                             onCategories = { route = DevRoute.Categories },
-                            onTrends = { route = DevRoute.Trends }
+                            onTrends = { route = DevRoute.Trends },
+                            onAccount = { route = DevRoute.Account }
                         )
                         DevRoute.AddTransaction -> AddTransactionScreen(onBack = { route = DevRoute.Home })
                         DevRoute.Budget -> BudgetScreen(onBack = { route = DevRoute.Home })
@@ -168,6 +170,10 @@ class MainActivity : ComponentActivity() {
                         DevRoute.Trends -> TrendsScreen(
                             onBack = { route = DevRoute.Home },
                             onBudget = { route = DevRoute.Budget }
+                        )
+                        DevRoute.Account -> AccountScreen(
+                            onBack = { route = DevRoute.Home },
+                            onLogout = { route = DevRoute.Home }
                         )
                     }
                 }
@@ -1655,7 +1661,8 @@ class MainActivity : ComponentActivity() {
             AddTransaction,
             Budget,
             Categories,
-            Trends
+            Trends,
+            Account
         }
         private const val PRIVACY_POLICY_PLACEHOLDER = """
 Last updated: [DATE]

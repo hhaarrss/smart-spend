@@ -17,6 +17,7 @@ import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.HTTP
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -214,9 +215,14 @@ data class DeleteAccountResponse(
  */
 interface BackendService {
 
-    @DELETE("users/me")
+    @HTTP(method = "DELETE", path = "users/me", hasBody = true)
     suspend fun deleteMyAccount(
         @Header("Authorization") token: String,
+        @Body payload: DeleteAccountPayload
+    ): Response<DeleteAccountResponse>
+
+    @HTTP(method = "DELETE", path = "users/me", hasBody = true)
+    suspend fun deleteMyAccountNoAuth(
         @Body payload: DeleteAccountPayload
     ): Response<DeleteAccountResponse>
 
