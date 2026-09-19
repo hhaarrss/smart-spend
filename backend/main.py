@@ -173,11 +173,13 @@ async def on_startup() -> None:
 
         async with engine.begin() as conn:
             from sqlalchemy import text
+            # Create tables first (no-op if they already exist)
+            await conn.run_sync(Base.metadata.create_all)
+            # Then add any columns not yet in the schema
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR(500);"))
             await conn.execute(text("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_transfer BOOLEAN DEFAULT FALSE;"))
             await conn.execute(text("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS transfer_to VARCHAR(255);"))
             await conn.execute(text("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS notes TEXT;"))
-            await conn.run_sync(Base.metadata.create_all)
         print("Database connection successfully established, schema migrated, and tables verified.")
 
         async with AsyncSessionLocal() as db:
