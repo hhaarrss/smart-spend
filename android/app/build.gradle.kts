@@ -46,12 +46,21 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("Boolean", "DEV_SKIP_AUTH", "true")
         buildConfigField("String", "DEV_BACKEND_BASE_URL", "\"$devBackendBaseUrl\"")
     }
 
     buildTypes {
+        // DEV_SKIP_AUTH must never be true outside debug: it also gates the cleartext
+        // LAN dev-backend URL and a fabricated login token (see BackendService.kt and
+        // MainActivity.kt). Previously set in defaultConfig, which applies to every
+        // build type including release — a release build would have skipped real login,
+        // minted a fake session, and sent transaction data over plain HTTP to a
+        // hardcoded LAN IP.
+        debug {
+            buildConfigField("Boolean", "DEV_SKIP_AUTH", "true")
+        }
         release {
+            buildConfigField("Boolean", "DEV_SKIP_AUTH", "false")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

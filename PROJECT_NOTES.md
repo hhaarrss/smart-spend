@@ -51,6 +51,18 @@ Done and verified:
   — **but the OLD secret was committed twice to git history and must
   be treated as permanently compromised. A new JWT_SECRET_KEY must be
   generated and used in Render, never reuse the old value.**
+- Fixed: `DEV_SKIP_AUTH` was set in `defaultConfig`, which applies to
+  every build type including `release`. That flag also gates the
+  cleartext LAN dev-backend URL and (as of this same branch) a fabricated
+  login token, so a release build as shipped would have skipped real
+  login, minted a fake session, and sent transaction data over plain
+  HTTP to a hardcoded LAN IP. Moved to per-buildType in
+  `android/app/build.gradle.kts`: `true` in `debug`, `false` in
+  `release` — a release build now falls through to the real login flow
+  and the production HTTPS backend, same as before `DEV_SKIP_AUTH`
+  existed. Not build-verified (same sandbox limitation as everything
+  else on this branch) — confirm a `release` build variant actually
+  compiles and routes correctly before shipping one.
 
 Design system (built, not yet device-verified):
 - `ui/theme/` is now a real token system instead of the Android Studio
