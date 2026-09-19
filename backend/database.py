@@ -69,11 +69,26 @@ if DATABASE_URL.startswith("postgres://"):
 elif DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+# Strip sslmode from query string — asyncpg does not read it from the URL;
+# it must be passed as a connect_arg instead.
+if "sslmode=" in DATABASE_URL:
+    import re as _re
+    DATABASE_URL = _re.sub(r"[?&]sslmode=[^&]*", "", DATABASE_URL)
+    # Clean up leftover ? or & at the end
+    DATABASE_URL = DATABASE_URL.rstrip("?&")
+
+# Managed PostgreSQL providers (Neon, Render, Supabase) require SSL.
+# Detect by APP_ENV or known managed-DB hostnames in the URL.
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+_MANAGED_DB_HOSTS = ("neon.tech", "render.com", "supabase.co", "aivencloud.com")
+_is_managed_db = APP_ENV == "production" or any(host in DATABASE_URL for host in _MANAGED_DB_HOSTS)
+
 # Create SQLAlchemy async engine
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,  # Set to True for SQL log output in development
     pool_pre_ping=True,
+    connect_args={"ssl": "require"} if _is_managed_db else {},
 )
 
 # Async session factory

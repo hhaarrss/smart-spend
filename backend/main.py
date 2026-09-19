@@ -147,6 +147,21 @@ app.include_router(home_router)
 @app.on_event("startup")
 async def on_startup() -> None:
     print("Initializing Smart Expense Tracker Backend...")
+
+    if APP_ENV == "production":
+        # In production, schema is managed by Alembic migrations (pre-deploy command).
+        # Skip dev-only ALTER TABLE mutations and seed user creation.
+        print("Production mode — skipping dev schema mutations and seed user.")
+        # Still verify DB connectivity
+        try:
+            async with engine.begin() as conn:
+                from sqlalchemy import text
+                await conn.execute(text("SELECT 1"))
+            print("Database connection verified.")
+        except Exception as e:
+            print(f"Warning: Database connectivity check failed: {e}")
+        return
+
     try:
         from database import Base, AsyncSessionLocal
         from models.user import User
