@@ -70,6 +70,20 @@ In progress / not yet done:
   `local.properties` if the dev machine's LAN IP isn't
   `192.168.29.227` (the fallback baked in, taken from a prior working
   value already present in the app's network security config).
+- Fixed: real incoming SMS were parsed correctly but never reached the
+  backend. Root cause — the dev Compose entry point (`DEV_SKIP_AUTH=true`
+  in `MainActivity.kt`) skips the login flow entirely and never wrote a
+  `jwt_token` to SharedPreferences, but `SmsReceiver.sendToBackend()`
+  bails out early (logs "No JWT token found, cannot ingest SMS") whenever
+  that key is empty. So SMS auto-sync silently did nothing end-to-end,
+  even with permission granted and a real bank SMS arriving, no error
+  surfaced anywhere. Fix: seed a stub token on startup in the dev branch
+  — the backend's `AUTH_STUB` mode ignores the token's contents and
+  always resolves to the seeded stub user, so any non-empty value
+  satisfies the client-side check. Still unverified on a real device
+  (same sandbox network limitation as above) — needs an actual bank SMS
+  received on a test device to confirm it now reaches the backend and
+  shows up on Home.
 - SMS auto-sync consent/permission screen — **code written, NOT yet
   build- or device-verified.** Lives at
   `android/app/src/main/java/com/smartspend/app/ui/permission/SmsConsentScreen.kt`
