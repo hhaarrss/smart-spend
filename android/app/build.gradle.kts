@@ -1,8 +1,34 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.services)
 }
+
+// Dev backend base URL, resolved in this order:
+// 1. -PdevBackendBaseUrl=... passed on the command line
+// 2. dev.backend.base.url in local.properties (per-machine, not checked in)
+// 3. a LAN fallback (see below)
+//
+// 127.0.0.1 on a physical phone means the phone itself, not your computer, so
+// it can never reach a backend running on your machine — that's the
+// "failed to connect to /127.0.0.1:8000" error. Testing on a real device over
+// Wi-Fi needs your computer's LAN IP instead. Set it once in local.properties:
+//   dev.backend.base.url=http://<your-computer's-LAN-IP>:8000/
+// and make sure the backend is running and reachable on that network (it
+// already binds 0.0.0.0 via docker-compose; phone and computer must be on the
+// same Wi-Fi, and the firewall must allow port 8000).
+// On an emulator instead, use http://10.0.2.2:8000/.
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { load(it) }
+    }
+}
+val devBackendBaseUrl: String = (project.findProperty("devBackendBaseUrl") as String?)
+    ?: localProperties.getProperty("dev.backend.base.url")
+    ?: "http://192.168.29.227:8000/"
 
 android {
     namespace = "com.smartspend.app"
@@ -20,11 +46,21 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("Boolean", "DEV_SKIP_AUTH", "true")
+        buildConfigField("String", "DEV_BACKEND_BASE_URL", "\"$devBackendBaseUrl\"")
     }
 
     buildTypes {
+        // DEV_SKIP_AUTH must never be true outside debug: it also gates the cleartext
+        // LAN dev-backend URL and a fabricated login token (see BackendService.kt and
+        // MainActivity.kt). Previously set in defaultConfig, which applies to every
+        // build type including release — a release build would have skipped real login,
+        // minted a fake session, and sent transaction data over plain HTTP to a
+        // hardcoded LAN IP.
+        debug {
+            buildConfigField("Boolean", "DEV_SKIP_AUTH", "true")
+        }
         release {
+            buildConfigField("Boolean", "DEV_SKIP_AUTH", "false")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -46,6 +82,7 @@ android {
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-core")
     implementation(libs.androidx.compose.ui)

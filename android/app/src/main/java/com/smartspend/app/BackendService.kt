@@ -435,7 +435,7 @@ interface BackendService {
 
     companion object {
         private val BASE_URL =
-            if (BuildConfig.DEV_SKIP_AUTH) "http://127.0.0.1:8000/" else "https://expense-tracker-pk4d.onrender.com/"
+            if (BuildConfig.DEV_SKIP_AUTH) BuildConfig.DEV_BACKEND_BASE_URL else "https://expense-tracker-pk4d.onrender.com/"
 
         /**
          * Creates a configured Retrofit BackendService instance with resilient timeouts.
