@@ -79,7 +79,8 @@ fun HomeScreen(
     onBudget: () -> Unit = {},
     onCategories: () -> Unit = {},
     onTrends: () -> Unit = {},
-    onAccount: () -> Unit = {}
+    onAccount: () -> Unit = {},
+    onEnableAutoSync: () -> Unit = {}
 ) {
     var state by remember { mutableStateOf<HomeUiState>(HomeUiState.Loading) }
     var refreshKey by remember { mutableStateOf(0) }
@@ -119,7 +120,8 @@ fun HomeScreen(
                     onBudget = onBudget,
                     onCategories = onCategories,
                     onTrends = onTrends,
-                    onAccount = onAccount
+                    onAccount = onAccount,
+                    onEnableAutoSync = onEnableAutoSync
                 )
                 is HomeUiState.Error -> HomeError(
                     message = current.message,
@@ -136,7 +138,8 @@ private fun HomeContent(
     onBudget: () -> Unit,
     onCategories: () -> Unit,
     onTrends: () -> Unit,
-    onAccount: () -> Unit
+    onAccount: () -> Unit,
+    onEnableAutoSync: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -145,6 +148,7 @@ private fun HomeContent(
     ) {
         item { TopBar(data.user.full_name, data.user.email, onAccount) }
         item { HeroSection(data, onBudget) }
+        item { AutoSyncCard(onEnableAutoSync) }
         item { ModeButtons(onTrends = onTrends, onCategories = onCategories) }
         if (data.overview.needs_review_count > 0) {
             item { NeedsReviewPill(data.overview.needs_review_count) }
@@ -264,6 +268,44 @@ private fun HeroSection(data: HomeData, onBudget: () -> Unit) {
                 }
                 Button(onClick = onBudget, modifier = Modifier.align(Alignment.CenterVertically)) {
                     Text("Set limit")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AutoSyncCard(onEnableAutoSync: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val smsPermissions = arrayOf(android.Manifest.permission.RECEIVE_SMS, android.Manifest.permission.READ_SMS)
+    val autoSyncActive = smsPermissions.all {
+        androidx.core.content.ContextCompat.checkSelfPermission(context, it) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("SMS auto-sync", fontWeight = FontWeight.Bold)
+                Text(
+                    if (autoSyncActive) "Active — transactions are detected automatically" else "Off — add transactions manually",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF667085)
+                )
+            }
+            if (autoSyncActive) {
+                Badge(containerColor = Color(0xFFDCFCE7)) {
+                    Text("Active", color = Color(0xFF166534))
+                }
+            } else {
+                Button(onClick = onEnableAutoSync) {
+                    Text("Enable auto-sync")
                 }
             }
         }

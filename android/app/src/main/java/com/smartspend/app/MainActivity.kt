@@ -45,6 +45,7 @@ import com.smartspend.app.ui.budget.BudgetScreen
 import com.smartspend.app.ui.categories.CategoriesScreen
 import com.smartspend.app.ui.home.HomeScreen
 import com.smartspend.app.ui.account.AccountScreen
+import com.smartspend.app.ui.permission.SmsConsentScreen
 import com.smartspend.app.ui.trends.TrendsScreen
 import com.smartspend.app.ui.theme.SmartSpendTheme
 import java.text.SimpleDateFormat
@@ -162,7 +163,13 @@ class MainActivity : ComponentActivity() {
                             onBudget = { route = DevRoute.Budget },
                             onCategories = { route = DevRoute.Categories },
                             onTrends = { route = DevRoute.Trends },
-                            onAccount = { route = DevRoute.Account }
+                            onAccount = { route = DevRoute.Account },
+                            onEnableAutoSync = { route = DevRoute.SmsConsent }
+                        )
+                        DevRoute.SmsConsent -> SmsConsentScreen(
+                            onBack = { route = DevRoute.Home },
+                            onAutoSyncReady = { route = DevRoute.Home },
+                            onManualEntry = { route = DevRoute.Home }
                         )
                         DevRoute.AddTransaction -> AddTransactionScreen(onBack = { route = DevRoute.Home })
                         DevRoute.Budget -> BudgetScreen(onBack = { route = DevRoute.Home })
@@ -1658,6 +1665,7 @@ class MainActivity : ComponentActivity() {
         private const val PAGE_SIZE = 10
         private enum class DevRoute {
             Home,
+            SmsConsent,
             AddTransaction,
             Budget,
             Categories,
