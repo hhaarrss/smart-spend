@@ -1,4 +1,4 @@
-# SmartSpend — Project Context for Claude Code
+# SmartSpend — Project Notes
 
 Read this file fully before starting any task. It contains architectural
 decisions, current status, and hard rules — do not deviate from these
@@ -66,7 +66,7 @@ In progress / not yet done:
   in-screen message + deep link to the app's system permission page).
   Home now has a live "SMS auto-sync" card wired to launch this screen
   (`HomeScreen.kt`, `MainActivity.kt` `DevRoute.SmsConsent`). **Could not
-  build or screenshot in the Claude Code cloud sandbox** — its egress
+  build or screenshot in this cloud dev sandbox** — its egress
   policy blocks `dl.google.com`, which hosts the Android Gradle Plugin,
   so no Gradle build is possible there at all. Per this project's
   verification standard, this must be built and screenshotted on a real
