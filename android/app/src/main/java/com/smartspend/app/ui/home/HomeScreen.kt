@@ -61,6 +61,7 @@ import com.smartspend.app.HomeCategoryData
 import com.smartspend.app.HomeData
 import com.smartspend.app.HomeRecentTransactionData
 import com.smartspend.app.RetrofitClient
+import com.smartspend.app.ui.permission.rememberSmsPermissionsGranted
 import java.text.NumberFormat
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -276,11 +277,7 @@ private fun HeroSection(data: HomeData, onBudget: () -> Unit) {
 
 @Composable
 private fun AutoSyncCard(onEnableAutoSync: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val smsPermissions = arrayOf(android.Manifest.permission.RECEIVE_SMS, android.Manifest.permission.READ_SMS)
-    val autoSyncActive = smsPermissions.all {
-        androidx.core.content.ContextCompat.checkSelfPermission(context, it) == android.content.pm.PackageManager.PERMISSION_GRANTED
-    }
+    val autoSyncActive = rememberSmsPermissionsGranted()
 
     Card(
         modifier = Modifier.fillMaxWidth(),

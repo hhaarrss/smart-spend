@@ -30,23 +30,13 @@ import kotlinx.coroutines.withContext
 import android.provider.Telephony
 import android.widget.NumberPicker
 import androidx.activity.compose.setContent
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
-import com.smartspend.app.ui.addtransaction.AddTransactionScreen
-import com.smartspend.app.ui.budget.BudgetScreen
-import com.smartspend.app.ui.categories.CategoriesScreen
-import com.smartspend.app.ui.home.HomeScreen
-import com.smartspend.app.ui.account.AccountScreen
-import com.smartspend.app.ui.permission.SmsConsentScreen
-import com.smartspend.app.ui.trends.TrendsScreen
+import com.smartspend.app.ui.navigation.SmartSpendNavHost
 import com.smartspend.app.ui.theme.SmartSpendTheme
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -167,33 +157,7 @@ class MainActivity : ComponentActivity() {
             }
             setContent {
                 SmartSpendTheme(dynamicColor = false) {
-                    var route by remember { mutableStateOf(DevRoute.Home) }
-                    when (route) {
-                        DevRoute.Home -> HomeScreen(
-                            onAddTransaction = { route = DevRoute.AddTransaction },
-                            onBudget = { route = DevRoute.Budget },
-                            onCategories = { route = DevRoute.Categories },
-                            onTrends = { route = DevRoute.Trends },
-                            onAccount = { route = DevRoute.Account },
-                            onEnableAutoSync = { route = DevRoute.SmsConsent }
-                        )
-                        DevRoute.SmsConsent -> SmsConsentScreen(
-                            onBack = { route = DevRoute.Home },
-                            onAutoSyncReady = { route = DevRoute.Home },
-                            onManualEntry = { route = DevRoute.Home }
-                        )
-                        DevRoute.AddTransaction -> AddTransactionScreen(onBack = { route = DevRoute.Home })
-                        DevRoute.Budget -> BudgetScreen(onBack = { route = DevRoute.Home })
-                        DevRoute.Categories -> CategoriesScreen(onBack = { route = DevRoute.Home })
-                        DevRoute.Trends -> TrendsScreen(
-                            onBack = { route = DevRoute.Home },
-                            onBudget = { route = DevRoute.Budget }
-                        )
-                        DevRoute.Account -> AccountScreen(
-                            onBack = { route = DevRoute.Home },
-                            onLogout = { route = DevRoute.Home }
-                        )
-                    }
+                    SmartSpendNavHost()
                 }
             }
             return
@@ -1674,15 +1638,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val PAGE_SIZE = 10
-        private enum class DevRoute {
-            Home,
-            SmsConsent,
-            AddTransaction,
-            Budget,
-            Categories,
-            Trends,
-            Account
-        }
         private const val PRIVACY_POLICY_PLACEHOLDER = """
 Last updated: [DATE]
 Effective for: SmartSpend, developed by [YOUR NAME / COMPANY NAME]

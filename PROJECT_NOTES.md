@@ -53,6 +53,30 @@ Done and verified:
   generated and used in Render, never reuse the old value.**
 
 In progress / not yet done:
+- Navigation rebuilt on Navigation Compose (`ui/navigation/`): `Destination`
+  enum holds the route ids, `SmartSpendNavHost` owns the graph. Replaces the
+  hand-rolled `when(route)` + `DevRoute` enum that lived in `MainActivity`,
+  which had no back stack (system back exited the app from any screen) and
+  lost its position on process death. Also fixed while in there: a
+  double-tap during a transition pushed the destination twice (guarded by
+  dropping nav events from a non-RESUMED entry); the SMS consent screen now
+  pops off the back stack on every outcome so back from Home can't re-enter
+  the disclosure flow; logout clears the whole back stack, which is where
+  the auth graph attaches once real login exists. **Navigation Compose is
+  pinned at 2.8.4 in `libs.versions.toml` — this is the one line that could
+  not be verified here (Google Maven is unreachable from the sandbox), bump
+  it if the toolchain complains.**
+- Permission state is now lifecycle-aware (`ui/permission/SmsPermissionState.kt`).
+  Two real bugs fixed: (1) the Home auto-sync card read the permission once
+  at composition, so granting from system Settings and returning left it
+  showing "Off" indefinitely — it now re-reads on every resume; (2)
+  `context as? Activity` in the consent screen returns null whenever
+  LocalContext is a ContextWrapper, which silently forced
+  `shouldShowRequestPermissionRationale` to false and could misroute a
+  first-time denial to the "permanently denied" screen — replaced with a
+  proper `findComponentActivity()` unwrap. The permanently-denied screen
+  also now detects an out-of-band grant from Settings and proceeds instead
+  of continuing to claim the permission is blocked.
 - Fixed: dev backend base URL was hardcoded to `http://127.0.0.1:8000/`
   in `BackendService.kt`, which only works when the app and the backend
   run on the same machine (emulator + `adb reverse`, or a desktop

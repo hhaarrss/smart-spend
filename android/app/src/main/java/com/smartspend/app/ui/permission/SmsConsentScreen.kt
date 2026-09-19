@@ -1,7 +1,5 @@
 package com.smartspend.app.ui.permission
 
-import android.Manifest
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -36,6 +34,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,7 +47,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.delay
@@ -58,16 +56,11 @@ private const val PRIVACY_POLICY_URL = "https://hhaarrss.github.io/smart-spend/p
 private const val PREFS_NAME = "smart_spend_prefs"
 private const val PREF_SMS_PERMISSION_REQUESTED = "sms_permission_requested_once"
 
-private val SMS_PERMISSIONS = arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS)
-
 private sealed interface ConsentStep {
     data object Disclosure : ConsentStep
     data object Scanning : ConsentStep
     data object PermanentlyDenied : ConsentStep
 }
-
-private fun smsPermissionsGranted(context: Context): Boolean =
-    SMS_PERMISSIONS.all { ContextCompat.checkSelfPermission(context, it) == android.content.pm.PackageManager.PERMISSION_GRANTED }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,6 +75,19 @@ fun SmsConsentScreen(
 
     var step by remember { mutableStateOf<ConsentStep>(ConsentStep.Disclosure) }
 
+    // The Settings deep link leaves the app, so the grant happens out of band. On return,
+    // honour it instead of continuing to tell the user their permission is blocked.
+    val permissionsGranted = rememberSmsPermissionsGranted()
+    // Keyed only on the grant flip: keying on `step` too would cancel this effect the
+    // moment it reassigns `step`, and the delayed navigation would never run.
+    LaunchedEffect(permissionsGranted) {
+        if (permissionsGranted && step == ConsentStep.PermanentlyDenied) {
+            step = ConsentStep.Scanning
+            delay(1200)
+            onAutoSyncReady()
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
@@ -93,7 +99,7 @@ fun SmsConsentScreen(
                 onAutoSyncReady()
             }
         } else {
-            val activity = context as? Activity
+            val activity = context.findComponentActivity()
             val shouldShowRationale = activity != null && SMS_PERMISSIONS.any {
                 ActivityCompat.shouldShowRequestPermissionRationale(activity, it)
             }
