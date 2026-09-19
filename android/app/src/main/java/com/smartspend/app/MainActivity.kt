@@ -154,6 +154,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         if (BuildConfig.DEV_SKIP_AUTH) {
+            // The dev-stub backend (AUTH_STUB=true) ignores the token's contents and always
+            // resolves to the seeded stub user, but every client call — including SmsReceiver's
+            // background ingest — still checks for a non-empty token locally before it will even
+            // attempt the request. Without this, real incoming SMS are parsed but never synced.
+            val devPrefs = getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
+            if (devPrefs.getString("jwt_token", null).isNullOrEmpty()) {
+                devPrefs.edit()
+                    .putString("jwt_token", "dev-stub-token")
+                    .putString("user_email", "dev@smartspend.app")
+                    .apply()
+            }
             setContent {
                 SmartSpendTheme(dynamicColor = false) {
                     var route by remember { mutableStateOf(DevRoute.Home) }
