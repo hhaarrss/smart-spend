@@ -181,7 +181,6 @@ private fun HomeContent(
                 }
             }
         }
-        item { SplitsCard() }
     }
 }
 
@@ -420,28 +419,6 @@ private fun BudgetRow(budget: HomeBudgetSnapshotData) {
             trackColor = Color(0xFFE4E7EC)
         )
         Text("${money(budget.spent)} of ${money(budget.limit)}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF667085))
-    }
-}
-
-@Composable
-private fun SplitsCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF101828))
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Splits", color = Color.White, fontWeight = FontWeight.Bold)
-                Text("Shared expenses and settle-ups", color = Color(0xFFCBD5E1), style = MaterialTheme.typography.bodySmall)
-            }
-            Badge(containerColor = Color(0xFFFFEFD5)) {
-                Text("Coming soon", color = Color(0xFF9A3412))
-            }
-        }
     }
 }
 
