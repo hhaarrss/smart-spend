@@ -1,8 +1,34 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.services)
 }
+
+// Dev backend base URL, resolved in this order:
+// 1. -PdevBackendBaseUrl=... passed on the command line
+// 2. dev.backend.base.url in local.properties (per-machine, not checked in)
+// 3. a LAN fallback (see below)
+//
+// 127.0.0.1 on a physical phone means the phone itself, not your computer, so
+// it can never reach a backend running on your machine — that's the
+// "failed to connect to /127.0.0.1:8000" error. Testing on a real device over
+// Wi-Fi needs your computer's LAN IP instead. Set it once in local.properties:
+//   dev.backend.base.url=http://<your-computer's-LAN-IP>:8000/
+// and make sure the backend is running and reachable on that network (it
+// already binds 0.0.0.0 via docker-compose; phone and computer must be on the
+// same Wi-Fi, and the firewall must allow port 8000).
+// On an emulator instead, use http://10.0.2.2:8000/.
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { load(it) }
+    }
+}
+val devBackendBaseUrl: String = (project.findProperty("devBackendBaseUrl") as String?)
+    ?: localProperties.getProperty("dev.backend.base.url")
+    ?: "http://192.168.29.227:8000/"
 
 android {
     namespace = "com.smartspend.app"
@@ -21,6 +47,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("Boolean", "DEV_SKIP_AUTH", "true")
+        buildConfigField("String", "DEV_BACKEND_BASE_URL", "\"$devBackendBaseUrl\"")
     }
 
     buildTypes {

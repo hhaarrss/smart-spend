@@ -53,6 +53,23 @@ Done and verified:
   generated and used in Render, never reuse the old value.**
 
 In progress / not yet done:
+- Fixed: dev backend base URL was hardcoded to `http://127.0.0.1:8000/`
+  in `BackendService.kt`, which only works when the app and the backend
+  run on the same machine (emulator + `adb reverse`, or a desktop
+  build). On a real physical phone, 127.0.0.1 is the phone itself, so
+  it always failed with "failed to connect to /127.0.0.1:8000" —
+  this is what "Could not load Home" traced back to. Now configurable:
+  `android/app/build.gradle.kts` injects `BuildConfig.DEV_BACKEND_BASE_URL`
+  from (in order) a `-PdevBackendBaseUrl` flag, `dev.backend.base.url`
+  in `android/local.properties` (gitignored, per-machine), or a LAN
+  fallback. `BackendService.kt` now reads that field instead of a
+  hardcoded string. Still requires: the backend actually running and
+  reachable (`docker-compose up` in `backend/`, binds `0.0.0.0:8000`
+  already) and phone + dev machine on the same Wi-Fi network with the
+  firewall allowing port 8000 — set `dev.backend.base.url` in
+  `local.properties` if the dev machine's LAN IP isn't
+  `192.168.29.227` (the fallback baked in, taken from a prior working
+  value already present in the app's network security config).
 - SMS auto-sync consent/permission screen — **code written, NOT yet
   build- or device-verified.** Lives at
   `android/app/src/main/java/com/smartspend/app/ui/permission/SmsConsentScreen.kt`
