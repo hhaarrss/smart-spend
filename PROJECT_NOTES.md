@@ -52,6 +52,45 @@ Done and verified:
   be treated as permanently compromised. A new JWT_SECRET_KEY must be
   generated and used in Render, never reuse the old value.**
 
+Design system (built, not yet device-verified):
+- `ui/theme/` is now a real token system instead of the Android Studio
+  template (it was still `Purple80`/`Pink40`, which nothing referenced —
+  that is why every screen hardcoded hex): `Color.kt` (palette),
+  `SmartSpendColors.kt` (semantic tokens M3 has no slot for — positive /
+  negative / caution / accent / inkMuted / subtleSurface / hairline),
+  `CategoryPalette.kt` (per-category accent + chip tint, looked up by name
+  so a server-added category degrades instead of crashing), `Type.kt`
+  (chunky scale, display 56sp down to 10sp labels, tight negative tracking
+  on large sizes, `TabularAmount` for decimal-aligned money), `Shape.kt`
+  (12–34dp radii), `Theme.kt` (light + dark schemes, both provided via
+  CompositionLocal). Read tokens as `SmartSpendTheme.colors.x` /
+  `SmartSpendTheme.categories[name]`.
+- **Material You dynamic color was removed deliberately.** It overrides the
+  palette with the user's wallpaper colours, which would erase the brand
+  direction on every device that supports it.
+- `ui/components/MerchantAvatar.kt` is the single visual representation of a
+  transaction, resolving brand mark → category glyph → monogram. The brand
+  and glyph tiers currently return null, so everything renders the monogram
+  chip in the category accent — correct, just less specific. Both are
+  single-function seams; artwork drops in there and every screen picks it up.
+- Artwork still needed: the 14 category glyphs. Note before adding merchant
+  brand marks — Swiggy/Amazon/Uber logos are trademarks, so bundling them in
+  a shipped APK needs a deliberate call on usage rights.
+- Home is rebuilt on the system and is the reference screen: hero spend card
+  (the one number the screen exists for), a MoM pill phrased as rupees rather
+  than "-12.4% MoM", an income-usage bar, and a burn-rate/days-left insight
+  strip. Zero hardcoded hex remains in it.
+- **Known issue, deliberately not fixed yet:** `res/values/themes.xml` sets
+  `Theme.SmartSpend` to `Theme.Material3.Dark.NoActionBar` with a hardcoded
+  dark window/status/nav bar. In light mode that mismatches the Compose
+  background and shows a dark launch flash. The proper fix is a DayNight
+  parent plus `values-night/`, but that also restyles the legacy XML login
+  screens (colleague's surface, which assumes dark), so it belongs with the
+  legacy-flow retirement rather than as an unverifiable change now.
+- Remaining screens still on hardcoded hex, in redesign order by size:
+  Trends (52), Account (48), DeleteAccountDialog (15), Categories (12),
+  Budget (11), SmsConsent (7), AddTransaction (4).
+
 Design direction (decided, pending visual design pass):
 - Full UI redesign of every screen. Current screens are functional but
   generic; the goal is a distinct product feel, not a template look.

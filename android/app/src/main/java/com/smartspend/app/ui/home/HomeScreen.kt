@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,27 +22,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Badge
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -61,12 +54,19 @@ import com.smartspend.app.HomeCategoryData
 import com.smartspend.app.HomeData
 import com.smartspend.app.HomeRecentTransactionData
 import com.smartspend.app.RetrofitClient
+import com.smartspend.app.ui.components.MerchantAvatar
 import com.smartspend.app.ui.permission.rememberSmsPermissionsGranted
+import com.smartspend.app.ui.theme.SmartSpendTheme
+import com.smartspend.app.ui.theme.TabularAmount
 import java.text.NumberFormat
+import java.time.LocalDate
+import java.time.LocalTime
 import java.time.OffsetDateTime
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.absoluteValue
+import kotlin.math.roundToInt
 
 private sealed interface HomeUiState {
     data object Loading : HomeUiState
@@ -102,10 +102,17 @@ fun HomeScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFFF7F8FB),
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddTransaction) {
-                Icon(Icons.Default.Add, contentDescription = "Add transaction")
+            ExtendedFloatingActionButton(
+                onClick = onAddTransaction,
+                containerColor = SmartSpendTheme.colors.accent,
+                contentColor = SmartSpendTheme.colors.onAccent,
+                shape = MaterialTheme.shapes.large
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Add", fontWeight = FontWeight.Black)
             }
         }
     ) { innerPadding ->
@@ -144,40 +151,47 @@ private fun HomeContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        // Generous bottom padding so the FAB never covers the last row.
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 96.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        item { TopBar(data.user.full_name, data.user.email, onAccount) }
-        item { HeroSection(data, onBudget) }
-        item { AutoSyncCard(onEnableAutoSync) }
-        item { ModeButtons(onTrends = onTrends, onCategories = onCategories) }
+        item { GreetingRow(data.user.full_name, data.user.email, onAccount) }
+        item { SpendHero(data) }
+        item { InsightStrip(data) }
+
         if (data.overview.needs_review_count > 0) {
-            item { NeedsReviewPill(data.overview.needs_review_count) }
+            item { NeedsReviewBanner(data.overview.needs_review_count, onCategories) }
         }
-        item {
-            SectionCard(
-                title = "Recent transactions",
-                action = "See all"
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    data.recent_transactions.take(5).forEach { TransactionRow(it) }
+
+        item { AutoSyncCard(onEnableAutoSync) }
+
+        if (data.top_categories.isNotEmpty()) {
+            item {
+                SectionCard(title = "Where it's going", actionLabel = "Categories", onAction = onCategories) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        val biggest = data.top_categories.maxOf { it.spent }.coerceAtLeast(0.01)
+                        data.top_categories.take(4).forEach { CategoryRow(it, biggest) }
+                    }
                 }
             }
         }
-        item {
-            SectionCard(
-                title = "Top categories",
-                action = "See all"
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    data.top_categories.take(4).forEach { CategoryRow(it, data.overview.total_spent) }
+
+        if (data.recent_transactions.isNotEmpty()) {
+            item {
+                SectionCard(title = "Recent", actionLabel = "Trends", onAction = onTrends) {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        data.recent_transactions.take(5).forEach { TransactionRow(it) }
+                    }
                 }
             }
         }
-        item {
-            SectionCard(title = "Budget snapshot") {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    data.budget_snapshot.take(4).forEach { BudgetRow(it) }
+
+        if (data.budget_snapshot.isNotEmpty()) {
+            item {
+                SectionCard(title = "Budgets", actionLabel = "Manage", onAction = onBudget) {
+                    Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                        data.budget_snapshot.take(4).forEach { BudgetRow(it) }
+                    }
                 }
             }
         }
@@ -185,91 +199,239 @@ private fun HomeContent(
 }
 
 @Composable
-private fun TopBar(fullName: String?, email: String?, onAccount: () -> Unit) {
+private fun GreetingRow(fullName: String?, email: String?, onAccount: () -> Unit) {
     val displayName = fullName?.takeIf { it.isNotBlank() }
         ?: email?.substringBefore("@")?.replaceFirstChar { it.titlecase(Locale.getDefault()) }
-        ?: "SmartSpend"
+        ?: "there"
     val initial = displayName.firstOrNull()?.uppercase() ?: "S"
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF1F8A70))
-                .clickable { onAccount() },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(initial, color = Color.White, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text("Good morning", style = MaterialTheme.typography.labelMedium, color = Color(0xFF667085))
+            Text(
+                greetingFor(LocalTime.now()).uppercase(Locale.getDefault()),
+                style = MaterialTheme.typography.labelMedium,
+                color = SmartSpendTheme.colors.inkMuted
+            )
             Text(
                 displayName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
         }
-        IconButton(enabled = false, onClick = {}) {
-            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color(0xFF98A2B3))
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+                .clickable(onClick = onAccount),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                initial,
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black
+            )
+        }
+    }
+}
+
+/**
+ * The one number the screen exists to show. Everything else on Home is context for it,
+ * so it gets the display size and the only saturated surface on the page.
+ */
+@Composable
+private fun SpendHero(data: HomeData) {
+    val overview = data.overview
+    val onHero = MaterialTheme.colorScheme.onPrimary
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+    ) {
+        Column(
+            modifier = Modifier.padding(22.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                "SPENT IN ${monthLabel(data.month, data.year).uppercase(Locale.getDefault())}",
+                style = MaterialTheme.typography.labelMedium,
+                color = onHero.copy(alpha = 0.75f)
+            )
+            Text(
+                moneyWhole(overview.total_spent),
+                style = MaterialTheme.typography.displayLarge,
+                color = onHero,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            MomPill(overview.mom_change_percent, overview.total_spent)
+
+            if (overview.total_income > 0.0) {
+                Spacer(Modifier.height(2.dp))
+                IncomeUsageBar(
+                    spent = overview.total_spent,
+                    income = overview.total_income,
+                    onHero = onHero
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A raw "-12.4% MoM" makes the reader do the work. The rupee difference plus a plain-word
+ * comparison is the same fact in the form people actually think about it.
+ */
+@Composable
+private fun MomPill(momPercent: Double, totalSpent: Double) {
+    if (momPercent == 0.0) return
+
+    val spendingLess = momPercent < 0
+    // total_spent is this month at (100 + mom)% of last month; recover the rupee gap.
+    val previous = if (momPercent > -100.0) totalSpent / (1 + momPercent / 100.0) else 0.0
+    val delta = (totalSpent - previous).absoluteValue
+
+    val tint = if (spendingLess) SmartSpendTheme.colors.positive else SmartSpendTheme.colors.negative
+    val verb = if (spendingLess) "less" else "more"
+
+    Surface(
+        shape = CircleShape,
+        color = tint.copy(alpha = 0.22f)
+    ) {
+        Text(
+            text = "${if (spendingLess) "▼" else "▲"}  ${moneyWhole(delta)} $verb than last month",
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White
+        )
+    }
+}
+
+/** How much of what came in has gone back out — the fastest read on whether this month is fine. */
+@Composable
+private fun IncomeUsageBar(spent: Double, income: Double, onHero: Color) {
+    val ratio = (spent / income).coerceIn(0.0, 1.0).toFloat()
+    val remaining = (income - spent).coerceAtLeast(0.0)
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LinearProgressIndicator(
+            progress = { ratio },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(10.dp)
+                .clip(CircleShape),
+            color = onHero,
+            trackColor = onHero.copy(alpha = 0.25f),
+            gapSize = 0.dp,
+            drawStopIndicator = {}
+        )
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                "${(ratio * 100).roundToInt()}% of income used",
+                style = MaterialTheme.typography.bodySmall,
+                color = onHero.copy(alpha = 0.8f),
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                "${moneyWhole(remaining)} left",
+                style = MaterialTheme.typography.bodySmall,
+                color = onHero,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+/** Burn rate and runway — the two derived numbers that change behaviour mid-month. */
+@Composable
+private fun InsightStrip(data: HomeData) {
+    val today = LocalDate.now()
+    val isCurrentMonth = today.year == data.year && today.monthValue == data.month
+    val daysInMonth = runCatching { YearMonth.of(data.year, data.month).lengthOfMonth() }
+        .getOrDefault(30)
+    val daysElapsed = if (isCurrentMonth) today.dayOfMonth else daysInMonth
+    val daysLeft = (daysInMonth - daysElapsed).coerceAtLeast(0)
+    val perDay = if (daysElapsed > 0) data.overview.total_spent / daysElapsed else 0.0
+
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        StatTile(
+            modifier = Modifier.weight(1f),
+            value = moneyWhole(perDay),
+            label = "a day, on average"
+        )
+        StatTile(
+            modifier = Modifier.weight(1f),
+            value = if (isCurrentMonth) "$daysLeft" else "$daysInMonth",
+            label = if (isCurrentMonth) "days left this month" else "days in this month"
+        )
+    }
+}
+
+@Composable
+private fun StatTile(modifier: Modifier = Modifier, value: String, label: String) {
+    Card(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.bodySmall,
+                color = SmartSpendTheme.colors.inkMuted
+            )
         }
     }
 }
 
 @Composable
-private fun HeroSection(data: HomeData, onBudget: () -> Unit) {
-    val mom = data.overview.mom_change_percent
-    val momLabel = if (mom >= 0) "+${mom.formatPercent()} MoM" else "${mom.formatPercent()} MoM"
-
-    ElevatedCard(
-        colors = CardDefaults.elevatedCardColors(containerColor = Color.Transparent),
-        shape = RoundedCornerShape(8.dp)
+private fun NeedsReviewBanner(count: Int, onReview: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = SmartSpendTheme.colors.cautionContainer)
     ) {
-        Column(
+        Row(
             modifier = Modifier
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFF101828), Color(0xFF1F8A70), Color(0xFFEF9F35))
-                    )
-                )
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .clickable(onClick = onReview)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Total spend", color = Color(0xFFE6F4EF), style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        money(data.overview.total_spent),
-                        color = Color.White,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-                Badge(containerColor = if (mom <= 0) Color(0xFFDCFCE7) else Color(0xFFFFF7ED)) {
-                    Text(momLabel, color = if (mom <= 0) Color(0xFF166534) else Color(0xFF9A3412))
-                }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    if (count == 1) "1 transaction needs a category" else "$count transactions need a category",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "Tag them once and we'll remember next time",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SmartSpendTheme.colors.inkMuted
+                )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    color = Color.White.copy(alpha = 0.14f),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text("Income", color = Color(0xFFD1FAE5), style = MaterialTheme.typography.labelMedium)
-                        Text(money(data.overview.total_income), color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                }
-                Button(onClick = onBudget, modifier = Modifier.align(Alignment.CenterVertically)) {
-                    Text("Set limit")
-                }
-            }
+            Text(
+                "Review",
+                style = MaterialTheme.typography.labelLarge,
+                color = SmartSpendTheme.colors.caution
+            )
         }
     }
 }
@@ -280,28 +442,46 @@ private fun AutoSyncCard(onEnableAutoSync: () -> Unit) {
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = if (autoSyncActive) {
+                SmartSpendTheme.colors.positiveContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
+        )
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("SMS auto-sync", fontWeight = FontWeight.Bold)
                 Text(
-                    if (autoSyncActive) "Active — transactions are detected automatically" else "Off — add transactions manually",
+                    if (autoSyncActive) "Auto-sync is on" else "Auto-sync is off",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    if (autoSyncActive) {
+                        "Bank SMS get logged the moment they arrive"
+                    } else {
+                        "Log bank SMS automatically instead of by hand"
+                    },
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF667085)
+                    color = SmartSpendTheme.colors.inkMuted
                 )
             }
-            if (autoSyncActive) {
-                Badge(containerColor = Color(0xFFDCFCE7)) {
-                    Text("Active", color = Color(0xFF166534))
-                }
-            } else {
-                Button(onClick = onEnableAutoSync) {
-                    Text("Enable auto-sync")
+            if (!autoSyncActive) {
+                Spacer(Modifier.width(12.dp))
+                Button(
+                    onClick = onEnableAutoSync,
+                    shape = MaterialTheme.shapes.small,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Text("Turn on", fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -309,46 +489,35 @@ private fun AutoSyncCard(onEnableAutoSync: () -> Unit) {
 }
 
 @Composable
-private fun ModeButtons(
-    onTrends: () -> Unit,
-    onCategories: () -> Unit
-) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        FilterChip(selected = false, onClick = onTrends, label = { Text("Trends") })
-        FilterChip(selected = false, onClick = onCategories, label = { Text("Categories") })
-    }
-}
-
-@Composable
-private fun NeedsReviewPill(count: Int) {
-    AssistChip(
-        enabled = false,
-        onClick = {},
-        label = { Text("$count transactions need review") }
-    )
-}
-
-@Composable
 private fun SectionCard(
     title: String,
-    action: String? = null,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                if (action != null) {
-                    TextButton(enabled = false, onClick = {}) {
-                        Text(action)
-                    }
+                Text(
+                    title,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (actionLabel != null && onAction != null) {
+                    Text(
+                        actionLabel,
+                        modifier = Modifier.clickable(onClick = onAction),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
             content()
@@ -358,67 +527,129 @@ private fun SectionCard(
 
 @Composable
 private fun TransactionRow(tx: HomeRecentTransactionData) {
+    val isCredit = tx.type.equals("credit", ignoreCase = true)
+
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(if (tx.type.equals("credit", true)) Color(0xFFE7F8EF) else Color(0xFFFFF2E5)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(tx.category.take(1).uppercase(), fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.width(12.dp))
+        MerchantAvatar(category = tx.category, merchant = tx.merchant, size = 42.dp)
+        Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(tx.merchant ?: tx.category, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
-            Text("${tx.category} • ${formatDate(tx.date)}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF667085))
+            Text(
+                tx.merchant?.takeIf { it.isNotBlank() } ?: tx.category,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                "${tx.category} · ${formatDate(tx.date)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = SmartSpendTheme.colors.inkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
+        Spacer(Modifier.width(10.dp))
         Text(
-            text = if (tx.type.equals("credit", true)) "+${money(tx.amount)}" else money(tx.amount),
-            color = if (tx.type.equals("credit", true)) Color(0xFF047857) else Color(0xFF101828),
-            fontWeight = FontWeight.Bold
+            text = if (isCredit) "+${moneyWhole(tx.amount)}" else moneyWhole(tx.amount),
+            style = MaterialTheme.typography.titleMedium.merge(TabularAmount),
+            color = if (isCredit) SmartSpendTheme.colors.positive else MaterialTheme.colorScheme.onSurface
         )
     }
 }
 
+/**
+ * Bars are scaled against the biggest category rather than total spend: against the total
+ * every bar is short and they all look alike, which defeats the comparison.
+ */
 @Composable
-private fun CategoryRow(category: HomeCategoryData, totalSpend: Double) {
-    val pct = if (totalSpend > 0.0) (category.spent / totalSpend).coerceIn(0.0, 1.0).toFloat() else 0f
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Row {
-            Text(category.category, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-            Text(money(category.spent), color = Color(0xFF475467))
+private fun CategoryRow(category: HomeCategoryData, biggestSpend: Double) {
+    val colors = SmartSpendTheme.categories[category.category]
+    val ratio = (category.spent / biggestSpend).coerceIn(0.0, 1.0).toFloat()
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        MerchantAvatar(category = category.category, size = 38.dp)
+        Spacer(Modifier.width(14.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Row {
+                Text(
+                    category.category,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    moneyWhole(category.spent),
+                    style = MaterialTheme.typography.titleMedium.merge(TabularAmount),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            LinearProgressIndicator(
+                progress = { ratio },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(CircleShape),
+                color = colors.accent,
+                trackColor = SmartSpendTheme.colors.subtleSurface,
+                gapSize = 0.dp,
+                drawStopIndicator = {}
+            )
         }
-        LinearProgressIndicator(
-            progress = { pct },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(RoundedCornerShape(8.dp)),
-            color = Color(0xFF1F8A70),
-            trackColor = Color(0xFFE4E7EC)
-        )
     }
 }
 
 @Composable
 private fun BudgetRow(budget: HomeBudgetSnapshotData) {
-    val pct = (budget.percent_used / 100.0).coerceIn(0.0, 1.0).toFloat()
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val percent = budget.percent_used
+    val ratio = (percent / 100.0).coerceIn(0.0, 1.0).toFloat()
+    val barColor = when {
+        percent > 100.0 -> SmartSpendTheme.colors.negative
+        percent >= 80.0 -> SmartSpendTheme.colors.caution
+        else -> SmartSpendTheme.colors.positive
+    }
+    val overspend = budget.spent - budget.limit
+
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(budget.category, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-            Text("${budget.percent_used.toInt()}% used", color = budgetTextColor(budget.percent_used))
+            Text(
+                budget.category,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                "${percent.roundToInt()}%",
+                style = MaterialTheme.typography.titleMedium,
+                color = barColor
+            )
         }
         LinearProgressIndicator(
-            progress = { pct },
+            progress = { ratio },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp)
-                .clip(RoundedCornerShape(8.dp)),
-            color = budgetBarColor(budget.percent_used),
-            trackColor = Color(0xFFE4E7EC)
+                .clip(CircleShape),
+            color = barColor,
+            trackColor = SmartSpendTheme.colors.subtleSurface,
+            gapSize = 0.dp,
+            drawStopIndicator = {}
         )
-        Text("${money(budget.spent)} of ${money(budget.limit)}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF667085))
+        Text(
+            text = if (overspend > 0) {
+                "${moneyWhole(overspend)} over ${moneyWhole(budget.limit)}"
+            } else {
+                "${moneyWhole(budget.spent)} of ${moneyWhole(budget.limit)}"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = if (overspend > 0) SmartSpendTheme.colors.negative else SmartSpendTheme.colors.inkMuted
+        )
     }
 }
 
@@ -426,23 +657,25 @@ private fun BudgetRow(budget: HomeBudgetSnapshotData) {
 private fun HomeSkeleton() {
     val transition = rememberInfiniteTransition(label = "home-skeleton")
     val alpha by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 0.85f,
+        initialValue = 0.3f,
+        targetValue = 0.75f,
         animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
         label = "skeleton-alpha"
     )
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        items(7) { index ->
+        items(6) { index ->
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (index == 1) 170.dp else 82.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFE4E7EC).copy(alpha = alpha))
+                    .height(if (index == 0) 190.dp else 86.dp)
+                    .clip(
+                        if (index == 0) MaterialTheme.shapes.extraLarge else MaterialTheme.shapes.large
+                    )
+                    .background(SmartSpendTheme.colors.subtleSurface.copy(alpha = alpha))
             )
         }
     }
@@ -457,47 +690,55 @@ private fun HomeError(message: String, onRetry: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Card(
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
                 modifier = Modifier
-                    .padding(20.dp)
+                    .padding(24.dp)
                     .widthIn(max = 360.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Could not load Home", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(message, color = Color(0xFF667085))
-                OutlinedButton(onClick = onRetry) {
-                    Text("Retry")
+                Text(
+                    "Couldn't load your spending",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = SmartSpendTheme.colors.inkMuted
+                )
+                OutlinedButton(onClick = onRetry, shape = MaterialTheme.shapes.small) {
+                    Text("Try again", fontWeight = FontWeight.Bold)
                 }
             }
         }
     }
 }
 
-private fun money(value: Double): String =
-    NumberFormat.getCurrencyInstance(Locale.Builder().setLanguage("en").setRegion("IN").build()).format(value.absoluteValue)
+/** Whole rupees. Paise widen every amount on screen and tell the user nothing. */
+private val inrWhole: NumberFormat =
+    NumberFormat.getCurrencyInstance(Locale.Builder().setLanguage("en").setRegion("IN").build())
+        .apply { maximumFractionDigits = 0 }
 
-private fun budgetBarColor(percentUsed: Double): Color = when {
-    percentUsed > 100.0 -> Color(0xFFE5484D)
-    percentUsed >= 80.0 -> Color(0xFFF59E0B)
-    else -> Color(0xFF1F8A70)
+private fun moneyWhole(value: Double): String = inrWhole.format(value.absoluteValue)
+
+private fun greetingFor(time: LocalTime): String = when (time.hour) {
+    in 0..11 -> "Good morning"
+    in 12..16 -> "Good afternoon"
+    else -> "Good evening"
 }
 
-private fun budgetTextColor(percentUsed: Double): Color = when {
-    percentUsed > 100.0 -> Color(0xFFB42318)
-    percentUsed >= 80.0 -> Color(0xFFB54708)
-    else -> Color(0xFF475467)
-}
-
-private fun Double.formatPercent(): String = "%.1f%%".format(this)
+private fun monthLabel(month: Int, year: Int): String = runCatching {
+    YearMonth.of(year, month).format(DateTimeFormatter.ofPattern("MMMM"))
+}.getOrDefault("this month")
 
 private fun formatDate(value: String?): String {
     if (value.isNullOrBlank()) return "Recent"
     return try {
-        OffsetDateTime.parse(value).format(DateTimeFormatter.ofPattern("dd MMM"))
+        OffsetDateTime.parse(value).format(DateTimeFormatter.ofPattern("d MMM"))
     } catch (_: Exception) {
         value.take(10)
     }

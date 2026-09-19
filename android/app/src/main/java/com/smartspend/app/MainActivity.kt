@@ -156,7 +156,7 @@ class MainActivity : ComponentActivity() {
                     .apply()
             }
             setContent {
-                SmartSpendTheme(dynamicColor = false) {
+                SmartSpendTheme {
                     SmartSpendNavHost()
                 }
             }
