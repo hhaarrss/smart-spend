@@ -52,6 +52,28 @@ Done and verified:
   be treated as permanently compromised. A new JWT_SECRET_KEY must be
   generated and used in Render, never reuse the old value.**
 
+Design direction (decided, pending visual design pass):
+- Full UI redesign of every screen. Current screens are functional but
+  generic; the goal is a distinct product feel, not a template look.
+- Visual direction: **playful & chunky** — oversized bold numbers, thick
+  rounded cards, bright accents, hierarchy from scale rather than
+  decoration. Explicitly not corporate/banking-formal.
+- **Light and dark designed together from day one**, not dark retrofitted
+  later. Note this conflicts with the current code, where every screen
+  hardcodes inline `Color(0xFF...)` literals instead of theme tokens —
+  that has to be refactored onto `ui/theme/` tokens as part of the redesign,
+  or dark mode is not achievable.
+- Icon system, three-tier with fallback: (1) real merchant brand marks for
+  recognised merchants, (2) duotone geometric category icons with local
+  specificity (auto-rickshaw for Transport, chai glass for Food) as
+  fallback, (3) monogram chip in the category accent colour for unknown
+  merchants. Chosen over sticker-illustrative (needs a new asset per
+  merchant, noisy in dense lists) and soft-3D clay (heaviest, hard to keep
+  consistent across both themes).
+- Splits card removed from Home — deferred to a later version.
+- Still to design: welcome screen with motion, animated app logo / launch
+  sequence, and a "dashboard updated" popup shown after a transaction syncs.
+
 In progress / not yet done:
 - Navigation rebuilt on Navigation Compose (`ui/navigation/`): `Destination`
   enum holds the route ids, `SmartSpendNavHost` owns the graph. Replaces the
