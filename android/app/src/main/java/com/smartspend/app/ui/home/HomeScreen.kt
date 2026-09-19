@@ -248,12 +248,12 @@ private fun GreetingRow(fullName: String?, email: String?, onAccount: () -> Unit
 @Composable
 private fun SpendHero(data: HomeData) {
     val overview = data.overview
-    val onHero = MaterialTheme.colorScheme.onPrimary
+    val onHero = SmartSpendTheme.colors.onHeroSurface
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+        colors = CardDefaults.cardColors(containerColor = SmartSpendTheme.colors.heroSurface)
     ) {
         Column(
             modifier = Modifier.padding(22.dp),

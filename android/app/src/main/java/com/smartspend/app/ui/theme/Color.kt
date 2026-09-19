@@ -10,6 +10,9 @@ val VioletDark = Color(0xFF9B84FF)
 val Tangerine = Color(0xFFFF6B35)
 val TangerineDark = Color(0xFFFF8A5F)
 
+/** Hero fill on dark: deep enough to sit inside a dark UI, saturated enough to stay brand. */
+val VioletDeep = Color(0xFF2F2168)
+
 val VioletContainer = Color(0xFFEDE7FF)
 val OnVioletContainer = Color(0xFF2A1B6B)
 val VioletContainerDark = Color(0xFF2E2352)

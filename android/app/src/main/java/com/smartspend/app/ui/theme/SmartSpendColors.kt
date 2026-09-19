@@ -25,6 +25,14 @@ data class SmartSpendColors(
     /** Secondary brand accent, for the one action a screen most wants. */
     val accent: Color,
     val onAccent: Color,
+    /**
+     * The hero card's fill. Separate from `colorScheme.primary` on purpose: in dark mode
+     * primary is the *lightened* violet meant for accents and text, and painting a large
+     * surface with it produces a glaring pale block brighter than the light theme's hero.
+     * Both variants stay dark enough to carry white text, so hero content never restyles.
+     */
+    val heroSurface: Color,
+    val onHeroSurface: Color,
     /** Muted body text — the "₹420 • 12 Mar" line under a merchant name. */
     val inkMuted: Color,
     /** Fills behind icon chips and inert chart tracks. */
@@ -41,6 +49,8 @@ val LightSmartSpendColors = SmartSpendColors(
     cautionContainer = Color(0xFFFFF1D6),
     accent = Tangerine,
     onAccent = Color.White,
+    heroSurface = Violet,
+    onHeroSurface = Color.White,
     inkMuted = InkMuted,
     subtleSurface = Sand,
     hairline = SandBorder
@@ -54,7 +64,9 @@ val DarkSmartSpendColors = SmartSpendColors(
     caution = CautionDark,
     cautionContainer = Color(0xFF3A2C10),
     accent = TangerineDark,
-    onAccent = Color(0xFF2B1206),
+    onAccent = TangerineInk,
+    heroSurface = VioletDeep,
+    onHeroSurface = Moon,
     inkMuted = MoonMuted,
     subtleSurface = NightMuted,
     hairline = NightBorder
