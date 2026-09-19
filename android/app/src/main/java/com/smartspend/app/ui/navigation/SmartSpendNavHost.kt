@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.smartspend.app.ui.account.AccountScreen
 import com.smartspend.app.ui.addtransaction.AddTransactionScreen
+import com.smartspend.app.ui.auth.AuthScreen
 import com.smartspend.app.ui.budget.BudgetScreen
 import com.smartspend.app.ui.categories.CategoriesScreen
 import com.smartspend.app.ui.home.HomeScreen
@@ -38,6 +39,17 @@ fun SmartSpendNavHost(
         startDestination = startDestination.route,
         modifier = modifier
     ) {
+        composable(Destination.Auth.route) {
+            AuthScreen(
+                onAuthenticated = {
+                    navController.navigate(Destination.Home.route) {
+                        popUpTo(Destination.Auth.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
         composable(Destination.Home.route) {
             HomeScreen(
                 onAddTransaction = { navController.navigateTo(Destination.AddTransaction) },
@@ -72,10 +84,10 @@ fun SmartSpendNavHost(
             AccountScreen(
                 onBack = { navController.navigateUp() },
                 onLogout = {
+                    // AccountScreen already cleared the stored session before calling this.
                     // Nothing from the signed-in session may stay reachable via back.
-                    // This is where the auth graph attaches once real login exists.
-                    navController.navigate(Destination.Home.route) {
-                        popUpTo(Destination.Home.route) { inclusive = true }
+                    navController.navigate(Destination.Auth.route) {
+                        popUpTo(navController.graph.id) { inclusive = true }
                         launchSingleTop = true
                     }
                 }

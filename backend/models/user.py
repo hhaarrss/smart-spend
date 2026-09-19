@@ -24,10 +24,14 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    email: Mapped[str] = mapped_column(
-        String(255), unique=True, index=True, nullable=False
+    email: Mapped[Optional[str]] = mapped_column(
+        String(255), unique=True, index=True, nullable=True
     )
-    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    hashed_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # E.164 format (e.g. "+919876543210"), set for users created via phone+OTP login.
+    phone_number: Mapped[Optional[str]] = mapped_column(
+        String(20), unique=True, index=True, nullable=True
+    )
     full_name: Mapped[str] = mapped_column(String(100), nullable=False)
     family_id: Mapped[Optional[int]] = mapped_column(
         Integer, ForeignKey("family_groups.id", ondelete="SET NULL"), nullable=True

@@ -10,6 +10,7 @@ from schemas.user import (
     UserResponse,
     Token,
     TokenData,
+    PhoneLoginRequest,
 )
 from schemas.transaction import (
     TransactionBase,
@@ -35,6 +36,7 @@ __all__ = [
     "UserResponse",
     "Token",
     "TokenData",
+    "PhoneLoginRequest",
     "TransactionBase",
     "TransactionCreate",
     "TransactionResponse",

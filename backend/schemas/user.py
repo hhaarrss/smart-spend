@@ -20,10 +20,13 @@ class UserCreate(UserBase):
     password: str = Field(..., min_length=8, description="Strong user password (min 8 characters).")
 
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     """Schema representing user profiles returned in API responses."""
 
     id: int
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = None
+    full_name: str
     family_id: Optional[int] = None
     created_at: datetime
 
@@ -42,3 +45,15 @@ class TokenData(BaseModel):
 
     email: Optional[str] = None
     user_id: Optional[int] = None
+
+
+class PhoneLoginRequest(BaseModel):
+    """
+    Schema for the phone+OTP login endpoint.
+
+    id_token is a Firebase ID token, obtained client-side after the user completes
+    Firebase Phone Auth (OTP verification). This backend never sees the OTP itself —
+    Firebase verifies it and issues the ID token as proof.
+    """
+
+    id_token: str = Field(..., description="Firebase ID token from a phone-auth sign-in.")

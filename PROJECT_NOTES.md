@@ -200,8 +200,71 @@ In progress / not yet done:
   verification standard, this must be built and screenshotted on a real
   device/emulator for all 3 outcomes, and `SmsReceiver` confirmed firing
   on a real incoming bank SMS, before it counts as done.
-- Auth stub (`AUTH_STUB=true`) still used for local dev — real auth is
-  colleague's work, not yet integrated
+- **Real auth implemented: phone number + OTP via Firebase Phone Auth,
+  replacing email/password as the primary sign-in path.** Built on
+  branch `claude/phone-otp-auth`, with explicit in-session confirmation
+  to cross the colleague-ownership line below — flagging it here rather
+  than treating that as a standing precedent for future sessions.
+  - **Backend:** `POST /auth/phone-login` (`routers/auth.py`) verifies a
+    Firebase ID token server-side (`utils/firebase_admin_client.py`,
+    new `firebase-admin` dependency) and issues this app's own JWT —
+    the backend never sees the OTP itself, only Firebase's signed proof
+    it was verified. Finds-or-creates a `User` by `phone_number` (new
+    column, added via the existing lightweight `ALTER TABLE ... ADD
+    COLUMN IF NOT EXISTS` pattern in `main.py`, not a real Alembic
+    migration — matches this file's existing house style).
+    `email`/`hashed_password` relaxed to nullable so phone-only users
+    don't need them. Old `/auth/login` + `/auth/register` kept working
+    but marked deprecated in their docstrings, not deleted — existing
+    rows may still depend on them, and removing working auth code
+    blind (no build) was judged higher-risk than leaving a small
+    amount of dead-path code for a follow-up cleanup.
+  - **Requires manual setup before it can work on any real deployment,
+    not done by this code:** enable the "Phone" sign-in provider in the
+    Firebase Console; generate a service-account key and set either
+    `FIREBASE_SERVICE_ACCOUNT_JSON` (full JSON as an env var value) or
+    `GOOGLE_APPLICATION_CREDENTIALS` (a file path) wherever the backend
+    runs. Until then `/auth/phone-login` returns a clean 503 rather
+    than crashing the app — verified with a real `TestClient` request
+    in this sandbox (503 unconfigured, 401 on a bad token once a fake
+    service-account is supplied) — but sign-in will not actually work
+    until a real Firebase project is wired up.
+  - **Android:** `ui/auth/` — `AuthScreen.kt` (Welcome, with a light
+    entrance-motion pass → phone entry → OTP entry, as one composable
+    with local step state, same pattern as `SmsConsentScreen`),
+    `PhoneAuthController.kt` (coroutine wrapper around Firebase's
+    callback-based `PhoneAuthProvider` API, handles the auto-verified
+    path where Firebase confirms the number without ever showing an
+    OTP screen). `ui/util/ContextExt.kt` now holds `findComponentActivity()`
+    (promoted out of `ui/permission/`, shared by both).
+  - **Navigation restructured around session state, not build config:**
+    `MainActivity.onCreate` now always renders the Compose `SmartSpendNavHost`
+    for every build type, starting at `Destination.Auth` or `Destination.Home`
+    depending on whether a session token is stored
+    (`ui/auth/Session.kt`). The legacy `DEV_SKIP_AUTH` stub-token seed
+    (from the previous SMS-consent branch) is **removed** — superseded
+    by real sign-in, and removing it means a fresh debug install now
+    exercises the real Auth flow instead of skipping straight past it.
+  - **This is also, by necessity, the point where the legacy XML/View
+    login flow stops being reachable from anywhere** — its code
+    (`ActivityMainBinding`, `checkPermissions()`, the dashboard-sync
+    methods, etc.) is left in `MainActivity.kt` rather than deleted in
+    this pass (every one of its screens already has a working Compose
+    equivalent, so it's genuinely dead code, not a second live UI —
+    but ripping out ~1500 lines blind, with no way to build and catch
+    a mistake, was judged the wrong risk tradeoff versus a follow-up
+    cleanup pass once this is device-verified).
+  - **Not build- or device-verified** — same sandbox limitation as
+    everything else in this file (no Android SDK, Google Maven
+    unreachable). Verified by: compiling the full Kotlin source set
+    with a standalone `kotlinc` (zero unresolved project symbols,
+    checked explicitly against every new declaration); and, on the
+    backend, actually installing dependencies in a venv and exercising
+    `/auth/phone-login` with a real `TestClient` (both the unconfigured
+    and configured-but-invalid-token paths, not just import-time
+    checks). Still needs: a real Firebase project wired up end-to-end,
+    a device build, and confirmation the legacy-flow retirement above
+    didn't miss a still-live call path into the dead code.
 - Render production deployment — not yet updated with Phases 1-6
 - Production fingerprint purge + raw-SMS purge migrations — MUST NOT
   run until Render deployment is confirmed working AND colleague's

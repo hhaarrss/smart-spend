@@ -159,6 +159,12 @@ async def on_startup() -> None:
         async with engine.begin() as conn:
             from sqlalchemy import text
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR(500);"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number VARCHAR(20) UNIQUE;"))
+            # Phone+OTP is now the primary sign-in path; existing rows created via
+            # email+password stay as-is, but the columns can no longer be required
+            # for every user.
+            await conn.execute(text("ALTER TABLE users ALTER COLUMN email DROP NOT NULL;"))
+            await conn.execute(text("ALTER TABLE users ALTER COLUMN hashed_password DROP NOT NULL;"))
             await conn.execute(text("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_transfer BOOLEAN DEFAULT FALSE;"))
             await conn.execute(text("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS transfer_to VARCHAR(255);"))
             await conn.execute(text("ALTER TABLE transactions ADD COLUMN IF NOT EXISTS notes TEXT;"))

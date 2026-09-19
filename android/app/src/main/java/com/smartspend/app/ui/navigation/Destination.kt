@@ -7,6 +7,7 @@ package com.smartspend.app.ui.navigation
  * part of the app's stored state — renaming one invalidates a restored back stack.
  */
 enum class Destination(val route: String) {
+    Auth("auth"),
     Home("home"),
     AddTransaction("add_transaction"),
     Budget("budget"),

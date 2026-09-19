@@ -36,6 +36,8 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.smartspend.app.ui.auth.hasStoredSession
+import com.smartspend.app.ui.navigation.Destination
 import com.smartspend.app.ui.navigation.SmartSpendNavHost
 import com.smartspend.app.ui.theme.SmartSpendTheme
 import java.text.SimpleDateFormat
@@ -143,58 +145,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (BuildConfig.DEV_SKIP_AUTH) {
-            // The dev-stub backend (AUTH_STUB=true) ignores the token's contents and always
-            // resolves to the seeded stub user, but every client call — including SmsReceiver's
-            // background ingest — still checks for a non-empty token locally before it will even
-            // attempt the request. Without this, real incoming SMS are parsed but never synced.
-            val devPrefs = getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
-            if (devPrefs.getString("jwt_token", null).isNullOrEmpty()) {
-                devPrefs.edit()
-                    .putString("jwt_token", "dev-stub-token")
-                    .putString("user_email", "dev@smartspend.app")
-                    .apply()
+        // One Compose UI for every build type. DEV_SKIP_AUTH (debug only — see
+        // build.gradle.kts) still decides which backend URL BackendService talks to, but
+        // no longer bypasses login: a fresh debug install goes through the real
+        // Welcome -> phone -> OTP flow (AuthScreen) exactly like a release build, so that
+        // flow actually gets exercised in normal day-to-day development instead of being
+        // unreachable dead code until a release build.
+        //
+        // The legacy View/XML-bound flow below this (ActivityMainBinding, checkPermissions(),
+        // the dashboard sync methods, etc.) is no longer entered from anywhere. It is kept
+        // in place rather than deleted in this pass — every one of its screens now has a
+        // Compose equivalent already wired into SmartSpendNavHost, so it is safe dead code,
+        // not a second live UI — pending a follow-up cleanup pass to remove it outright.
+        val startDestination = if (hasStoredSession(this)) Destination.Home else Destination.Auth
+        setContent {
+            SmartSpendTheme {
+                SmartSpendNavHost(startDestination = startDestination)
             }
-            setContent {
-                SmartSpendTheme {
-                    SmartSpendNavHost()
-                }
-            }
-            return
-        }
-
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
-        auth = FirebaseAuth.getInstance()
-        val webClientId = getString(R.string.default_web_client_id)
-        val gsoBuilder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestEmail()
-        if (webClientId.isNotBlank() && !webClientId.contains("placeholder")) {
-            gsoBuilder.requestIdToken(webClientId)
-        }
-        googleSignInClient = GoogleSignIn.getClient(this, gsoBuilder.build())
-
-        sharedPrefs = getSharedPreferences("smart_spend_prefs", Context.MODE_PRIVATE)
-        sharedPrefs.registerOnSharedPreferenceChangeListener(prefsListener)
-
-        setupAdapters()
-        setupBottomNavigation()
-        setupFormControls()
-        setupMonthPicker()
-        setupTransactionPagination()
-        checkPermissions()
-        setupListeners()
-        navigateToCorrectScreen()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (BuildConfig.DEV_SKIP_AUTH) return
-        val token = sharedPrefs.getString("jwt_token", null)
-        if (!token.isNullOrEmpty()) {
-            fetchDashboardData()
-            registerFcmTokenIfAvailable(token)
         }
     }
 

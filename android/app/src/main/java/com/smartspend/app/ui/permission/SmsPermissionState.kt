@@ -2,7 +2,6 @@ package com.smartspend.app.ui.permission
 
 import android.Manifest
 import android.content.Context
-import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
@@ -15,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.smartspend.app.ui.util.findComponentActivity
 
 internal val SMS_PERMISSIONS = arrayOf(
     Manifest.permission.RECEIVE_SMS,
@@ -25,16 +25,6 @@ internal fun smsPermissionsGranted(context: Context): Boolean =
     SMS_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
     }
-
-/**
- * LocalContext is not guaranteed to be the Activity — it can be a ContextWrapper — so a
- * plain `as? Activity` cast silently yields null and breaks permission-rationale checks.
- */
-internal tailrec fun Context.findComponentActivity(): ComponentActivity? = when (this) {
-    is ComponentActivity -> this
-    is ContextWrapper -> baseContext.findComponentActivity()
-    else -> null
-}
 
 /**
  * Re-reads permission state on every resume. Granting from the system Settings screen

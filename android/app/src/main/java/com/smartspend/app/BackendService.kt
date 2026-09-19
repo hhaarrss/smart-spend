@@ -70,11 +70,19 @@ data class SmsPayload(
 )
 
 /**
- * Response model for the /auth/login endpoint.
+ * Response model for the /auth/login and /auth/phone-login endpoints.
  */
 data class LoginResponse(
     val access_token: String,
     val token_type: String
+)
+
+/**
+ * Payload for /auth/phone-login: a Firebase ID token proving the user completed
+ * phone number + OTP verification against Firebase directly.
+ */
+data class PhoneLoginPayload(
+    val id_token: String
 )
 
 /**
@@ -295,6 +303,15 @@ interface BackendService {
     suspend fun login(
         @Field("username") username: String,
         @Field("password") password: String
+    ): Response<LoginResponse>
+
+    /**
+     * Exchange a verified Firebase phone-auth ID token for this app's own JWT.
+     * Primary sign-in path — see PhoneLoginPayload.
+     */
+    @POST("auth/phone-login")
+    suspend fun phoneLogin(
+        @Body payload: PhoneLoginPayload
     ): Response<LoginResponse>
 
     /**

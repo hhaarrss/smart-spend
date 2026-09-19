@@ -11,18 +11,72 @@ from sqlalchemy.future import select
 
 from database import get_db
 from models.user import User
-from schemas.user import UserCreate, UserResponse, Token
+from schemas.user import UserCreate, UserResponse, Token, PhoneLoginRequest
 from utils.auth import hash_password, verify_password, create_access_token
 from utils.dependencies import get_current_user
+from utils.firebase_admin_client import verify_firebase_id_token
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+@router.post(
+    "/phone-login",
+    response_model=Token,
+    summary="Sign in (or register) with a Firebase phone+OTP token",
+)
+async def phone_login(
+    payload: PhoneLoginRequest,
+    db: AsyncSession = Depends(get_db)
+) -> dict:
+    """
+    Primary sign-in path: the client completes phone number + OTP verification
+    against Firebase directly, then exchanges the resulting Firebase ID token for
+    this app's own JWT. The OTP itself is never seen by this backend — only
+    Firebase's signed proof that it was verified.
+
+    Finds the user by phone number, creating one on first sign-in.
+
+    Args:
+        payload (PhoneLoginRequest): Contains the Firebase ID token to verify.
+        db (AsyncSession): The database session.
+
+    Raises:
+        HTTPException: 503 if Firebase Admin isn't configured on this deployment.
+        HTTPException: 401 if the token is invalid, expired, or has no phone number.
+
+    Returns:
+        dict: Object containing this app's own access token and bearer type.
+    """
+    claims = verify_firebase_id_token(payload.id_token)
+    phone_number = claims.get("phone_number")
+    if not phone_number:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sign-in token has no verified phone number.",
+        )
+
+    result = await db.execute(select(User).where(User.phone_number == phone_number))
+    user = result.scalars().first()
+
+    if user is None:
+        user = User(
+            phone_number=phone_number,
+            full_name="SmartSpend User",
+        )
+        db.add(user)
+        await db.flush()  # Populates user.id
+
+    token_data = {"sub": phone_number, "user_id": user.id}
+    access_token = create_access_token(data=token_data)
+
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.post(
     "/register",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Register a new user",
+    summary="Register a new user with email + password (deprecated)",
 )
 async def register(
     user_in: UserCreate,
@@ -67,7 +121,7 @@ async def register(
 @router.post(
     "/login",
     response_model=Token,
-    summary="Authenticate user and obtain a JWT access token",
+    summary="Authenticate with email + password (deprecated)",
 )
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
