@@ -3,43 +3,39 @@ package com.smartspend.app.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ── Brand ──────────────────────────────────────────────────────────────────
-// Violet carries the brand; tangerine is the "act on this" accent. Deliberately
-// not banking-blue. Dark variants are lightened so they keep contrast on ink.
-val Violet = Color(0xFF6C4CF1)
-val VioletDark = Color(0xFF9B84FF)
-val Tangerine = Color(0xFFFF6B35)
-val TangerineDark = Color(0xFFFF8A5F)
+val Violet = Color(0xFF16803C)
+val VioletDark = Color(0xFF136E33)
+val Tangerine = Color(0xFF22A447)
+val TangerineDark = Color(0xFF22A447)
 
 /** Hero fill on dark: deep enough to sit inside a dark UI, saturated enough to stay brand. */
-val VioletDeep = Color(0xFF2F2168)
+val VioletDeep = Color(0xFF16803C)
 
-val VioletContainer = Color(0xFFEDE7FF)
-val OnVioletContainer = Color(0xFF2A1B6B)
-val VioletContainerDark = Color(0xFF2E2352)
-val OnVioletContainerDark = Color(0xFFDCD2FF)
+val VioletContainer = Color(0xFFEAF7EF)
+val OnVioletContainer = Color(0xFF136E33)
+val VioletContainerDark = Color(0xFFEAF7EF)
+val OnVioletContainerDark = Color(0xFF136E33)
 
 // Deep tints used as `on*` colors against light-on-dark brand fills.
-val VioletInk = Color(0xFF1A1040)
-val TangerineInk = Color(0xFF2B1206)
+val VioletInk = Color(0xFF072116)
+val TangerineInk = Color(0xFF072116)
 val PositiveInk = Color(0xFF072116)
 val NegativeInk = Color(0xFF2B0B0D)
 
 // ── Neutrals ───────────────────────────────────────────────────────────────
-// Warm cream rather than sterile white, warm plum-ink rather than pure black:
-// pure #FFF/#000 is what makes a finance app feel like a spreadsheet.
-val Cream = Color(0xFFFFF8F0)
+val Cream = Color(0xFFFAFAF8)
 val PaperWhite = Color(0xFFFFFFFF)
-val Sand = Color(0xFFF3EDE4)
-val SandBorder = Color(0xFFE4DCD1)
-val Ink = Color(0xFF1A1523)
-val InkMuted = Color(0xFF6B6478)
+val Sand = Color(0xFFF8FAFC)
+val SandBorder = Color(0xFFE2E8F0)
+val Ink = Color(0xFF17202A)
+val InkMuted = Color(0xFF475569)
 
-val NightBase = Color(0xFF14111C)
-val NightSurface = Color(0xFF1E1A2A)
-val NightMuted = Color(0xFF2A2438)
-val NightBorder = Color(0xFF352E45)
-val Moon = Color(0xFFF5F1EA)
-val MoonMuted = Color(0xFFA79FB5)
+val NightBase = Color(0xFFFAFAF8)
+val NightSurface = Color(0xFFFFFFFF)
+val NightMuted = Color(0xFFF8FAFC)
+val NightBorder = Color(0xFFE2E8F0)
+val Moon = Color(0xFF17202A)
+val MoonMuted = Color(0xFF475569)
 
 // ── Status ─────────────────────────────────────────────────────────────────
 val Positive = Color(0xFF0E9F6E)

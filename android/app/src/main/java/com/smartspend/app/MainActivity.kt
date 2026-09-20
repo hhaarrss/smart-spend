@@ -195,7 +195,10 @@ class MainActivity : ComponentActivity() {
         if (BuildConfig.DEV_SKIP_AUTH) return
         val token = sharedPrefs.getString("jwt_token", null)
         if (!token.isNullOrEmpty()) {
-            fetchDashboardData()
+            lifecycleScope.launch {
+                SmsReceiver.flushOfflineQueue(this@MainActivity, token)
+                fetchDashboardData()
+            }
             registerFcmTokenIfAvailable(token)
         }
     }
