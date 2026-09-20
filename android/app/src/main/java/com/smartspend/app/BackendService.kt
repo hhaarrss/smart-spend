@@ -78,6 +78,24 @@ data class LoginResponse(
 )
 
 /**
+ * Payload for registering a new user.
+ */
+data class RegisterPayload(
+    val email: String,
+    val full_name: String,
+    val password: String
+)
+
+/**
+ * Data model for a User profile.
+ */
+data class UserData(
+    val id: Int,
+    val email: String,
+    val full_name: String? = null
+)
+
+/**
  * Transaction data model returned inside API responses.
  */
 data class TransactionData(
@@ -293,9 +311,19 @@ interface BackendService {
     @FormUrlEncoded
     @POST("auth/login")
     suspend fun login(
-        @Field("username") username: String,
+        @Field("username") username: String, // OAuth2 expects 'username' field for email
         @Field("password") password: String
     ): Response<LoginResponse>
+
+    @POST("auth/register")
+    suspend fun register(
+        @Body payload: RegisterPayload
+    ): Response<LoginResponse>
+
+    @GET("users/me")
+    suspend fun getMyProfile(
+        @Header("Authorization") token: String
+    ): Response<UserData>
 
     /**
      * Send parsed SMS data to the backend for transaction ingestion.

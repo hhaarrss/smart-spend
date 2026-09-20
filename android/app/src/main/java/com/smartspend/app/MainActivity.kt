@@ -77,6 +77,8 @@ class MainActivity : ComponentActivity() {
     private var remainingTxCount = 0
     private var hasScrolledAwayFromTop = false
 
+    private var isRegisterMode = false
+
     private val canonicalCategories = listOf(
         "Food", "Transport", "Shopping", "Entertainment", "Utilities",
         "Healthcare", "Education", "Travel", "Rent", "Transfer",
@@ -442,6 +444,22 @@ class MainActivity : ComponentActivity() {
     private fun setupListeners() {
         binding.btnLogin.setOnClickListener { performLogin() }
         binding.btnGoogleSignIn.setOnClickListener { launchGoogleSignIn() }
+        binding.btnToggleAuthMode.setOnClickListener {
+            isRegisterMode = !isRegisterMode
+            if (isRegisterMode) {
+                binding.tvLoginTitle.text = "Create Account"
+                binding.tvLoginSubtitle.text = "Join SmartSpend to track your expenses"
+                binding.llFullName.visibility = View.VISIBLE
+                binding.btnLogin.text = "Sign Up"
+                binding.btnToggleAuthMode.text = "Already have an account? Sign In"
+            } else {
+                binding.tvLoginTitle.text = getString(R.string.login_title)
+                binding.tvLoginSubtitle.text = "Sign in to pair your Android device with your Expense Dashboard"
+                binding.llFullName.visibility = View.GONE
+                binding.btnLogin.text = getString(R.string.btn_login)
+                binding.btnToggleAuthMode.text = "Don't have an account? Sign up"
+            }
+        }
     }
 
     private fun setFilterMode(mode: String) {
@@ -1219,19 +1237,29 @@ class MainActivity : ComponentActivity() {
     private fun performLogin() {
         val email = binding.etEmail.text.toString().trim()
         val password = binding.etPassword.text.toString().trim()
+        val fullName = binding.etFullName.text.toString().trim()
 
         if (email.isEmpty() || password.isEmpty()) {
             Toast.makeText(this, "Please enter email and password", Toast.LENGTH_SHORT).show()
             return
         }
+        
+        if (isRegisterMode && fullName.isEmpty()) {
+            Toast.makeText(this, "Please enter your full name", Toast.LENGTH_SHORT).show()
+            return
+        }
 
         binding.btnLogin.isEnabled = false
-        binding.btnLogin.text = "Signing in..."
+        binding.btnLogin.text = if (isRegisterMode) "Creating Account..." else "Signing in..."
 
         lifecycleScope.launch {
             try {
                 // 1. Authenticate with backend API for JWT
-                val resp = RetrofitClient.apiService.login(email, password)
+                val resp = if (isRegisterMode) {
+                    RetrofitClient.apiService.register(RegisterPayload(email, fullName, password))
+                } else {
+                    RetrofitClient.apiService.login(email, password)
+                }
                 if (resp.isSuccessful && resp.body() != null) {
                     val token = resp.body()!!.access_token
                     sharedPrefs.edit()
@@ -1253,21 +1281,23 @@ class MainActivity : ComponentActivity() {
 
                     withContext(Dispatchers.Main) {
                         binding.btnLogin.isEnabled = true
-                        binding.btnLogin.text = "Sign In"
-                        Toast.makeText(this@MainActivity, "Welcome back, $email! 👋", Toast.LENGTH_SHORT).show()
+                        binding.btnLogin.text = if (isRegisterMode) "Sign Up" else "Sign In"
+                        val welcomeMsg = if (isRegisterMode) "Account created! Welcome, $fullName! 👋" else "Welcome back, $email! 👋"
+                        Toast.makeText(this@MainActivity, welcomeMsg, Toast.LENGTH_SHORT).show()
                         showDashboard()
                     }
                 } else {
                     withContext(Dispatchers.Main) {
                         binding.btnLogin.isEnabled = true
-                        binding.btnLogin.text = "Sign In"
-                        Toast.makeText(this@MainActivity, "Login failed: ${resp.code()} (Invalid credentials)", Toast.LENGTH_LONG).show()
+                        binding.btnLogin.text = if (isRegisterMode) "Sign Up" else "Sign In"
+                        val errorMsg = if (isRegisterMode) "Registration failed: ${resp.code()}" else "Login failed: ${resp.code()} (Invalid credentials)"
+                        Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     binding.btnLogin.isEnabled = true
-                    binding.btnLogin.text = "Sign In"
+                    binding.btnLogin.text = if (isRegisterMode) "Sign Up" else "Sign In"
                     Toast.makeText(this@MainActivity, "Connection error: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
             }

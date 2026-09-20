@@ -73,6 +73,7 @@
                     android:background="@drawable/bg_gradient_button" />
 
                 <TextView
+                    android:id="@+id/tvLoginTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/login_title"
@@ -81,6 +82,7 @@
                     android:textStyle="bold" />
 
                 <TextView
+                    android:id="@+id/tvLoginSubtitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
@@ -100,6 +102,40 @@
                     android:textColor="@color/rose_error"
                     android:textSize="12sp"
                     android:visibility="gone" />
+
+                <!-- Full Name Input (Hidden by default for Register) -->
+                <LinearLayout
+                    android:id="@+id/llFullName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:letterSpacing="0.1"
+                        android:text="FULL NAME"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <EditText
+                        android:id="@+id/etFullName"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginBottom="20dp"
+                        android:autofillHints="personName"
+                        android:background="@drawable/bg_input_dark"
+                        android:hint="John Doe"
+                        android:importantForAutofill="yes"
+                        android:inputType="textPersonName"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:textColor="@color/text_primary"
+                        android:textColorHint="@color/text_tertiary"
+                        android:textSize="14sp" />
+                </LinearLayout>
 
                 <!-- Email Input -->
                 <TextView
@@ -167,6 +203,20 @@
                     android:textColor="#1A1A2E"
                     android:textSize="15sp"
                     android:textStyle="bold" />
+
+                <!-- Toggle Auth Mode Button -->
+                <TextView
+                    android:id="@+id/btnToggleAuthMode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="16dp"
+                    android:text="Don't have an account? Sign up"
+                    android:textColor="@color/indigo_light"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:clickable="true"
+                    android:focusable="true"/>
 
                 <!-- OR Divider -->
                 <LinearLayout
