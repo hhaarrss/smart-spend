@@ -20,16 +20,17 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post(
     "/register",
-    response_model=UserResponse,
+    response_model=Token,
     status_code=status.HTTP_201_CREATED,
-    summary="Register a new user",
+    summary="Register a new user and return a JWT access token",
 )
 async def register(
     user_in: UserCreate,
     db: AsyncSession = Depends(get_db)
-) -> User:
+) -> dict:
     """
     Registers a new user by checking for duplicates, hashing the password, and committing.
+    Returns a JWT token so the client can immediately start using the app.
 
     Args:
         user_in (UserCreate): Schema containing user email, password, and full name.
@@ -39,7 +40,7 @@ async def register(
         HTTPException: 400 Bad Request if the email already exists in the system.
 
     Returns:
-        User: The newly created database User object.
+        dict: Object containing the access token and bearer type.
     """
     # Check if user already exists
     result = await db.execute(select(User).where(User.email == user_in.email))
@@ -59,10 +60,14 @@ async def register(
     )
 
     db.add(new_user)
-    await db.flush()  # Populates new_user.id
-    await db.refresh(new_user)  # Populates server defaults like created_at
-    
-    return new_user
+    await db.commit()
+    await db.refresh(new_user)
+
+    # Auto-login: return a JWT token immediately
+    token_data = {"sub": new_user.email, "user_id": new_user.id}
+    access_token = create_access_token(data=token_data)
+
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.post(

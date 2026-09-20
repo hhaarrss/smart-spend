@@ -1254,20 +1254,12 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             try {
-                if (isRegisterMode) {
-                    val regResp = RetrofitClient.apiService.register(RegisterPayload(email, fullName, password))
-                    if (!regResp.isSuccessful) {
-                        withContext(Dispatchers.Main) {
-                            binding.btnLogin.isEnabled = true
-                            binding.btnLogin.text = "Sign Up"
-                            Toast.makeText(this@MainActivity, "Registration failed: ${regResp.code()}", Toast.LENGTH_LONG).show()
-                        }
-                        return@launch
-                    }
-                }
-
                 // Authenticate with backend API for JWT
-                val resp = RetrofitClient.apiService.login(email, password)
+                val resp = if (isRegisterMode) {
+                    RetrofitClient.apiService.register(RegisterPayload(email, fullName, password))
+                } else {
+                    RetrofitClient.apiService.login(email, password)
+                }
                 
                 if (resp.isSuccessful && resp.body() != null) {
                     val token = resp.body()!!.access_token
