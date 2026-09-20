@@ -57,7 +57,7 @@ android {
         // minted a fake session, and sent transaction data over plain HTTP to a
         // hardcoded LAN IP.
         debug {
-            buildConfigField("Boolean", "DEV_SKIP_AUTH", "true")
+            buildConfigField("Boolean", "DEV_SKIP_AUTH", "false")
         }
         release {
             buildConfigField("Boolean", "DEV_SKIP_AUTH", "false")

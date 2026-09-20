@@ -230,7 +230,7 @@ interface BackendService {
      * Fetch consolidated Home screen data. Auth is bypassed by the backend while AUTH_STUB=true.
      */
     @GET("home")
-    suspend fun getHomeData(): Response<HomeData>
+    suspend fun getHomeData(@Header("Authorization") token: String): Response<HomeData>
 
     /**
      * Fetch transactions requiring user review/categorization.

@@ -86,10 +86,15 @@ fun HomeScreen(
     var state by remember { mutableStateOf<HomeUiState>(HomeUiState.Loading) }
     var refreshKey by remember { mutableStateOf(0) }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sharedPrefs = remember { context.getSharedPreferences("smart_spend_prefs", android.content.Context.MODE_PRIVATE) }
+    val token = sharedPrefs.getString("jwt_token", "") ?: ""
+    val authHeader = if (token.isNotEmpty()) "Bearer $token" else ""
+
     LaunchedEffect(refreshKey) {
         state = HomeUiState.Loading
         state = try {
-            val response = RetrofitClient.apiService.getHomeData()
+            val response = RetrofitClient.apiService.getHomeData(authHeader)
             val body = response.body()
             if (response.isSuccessful && body != null) {
                 HomeUiState.Loaded(body)
