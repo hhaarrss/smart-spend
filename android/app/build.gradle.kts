@@ -28,7 +28,7 @@ val localProperties = Properties().apply {
 }
 val devBackendBaseUrl: String = (project.findProperty("devBackendBaseUrl") as String?)
     ?: localProperties.getProperty("dev.backend.base.url")
-    ?: "http://192.168.29.227:8000/"
+    ?: "https://firstproject-smartspend.onrender.com/"
 
 android {
     namespace = "com.smartspend.app"
