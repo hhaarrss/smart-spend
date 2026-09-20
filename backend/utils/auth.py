@@ -89,6 +89,8 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
     Returns:
         Optional[Dict[str, Any]]: The token payload if valid, None if invalid or expired.
     """
+    if not token:
+        return None
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
