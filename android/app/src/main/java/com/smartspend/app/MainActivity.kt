@@ -1254,12 +1254,21 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             try {
-                // 1. Authenticate with backend API for JWT
-                val resp = if (isRegisterMode) {
-                    RetrofitClient.apiService.register(RegisterPayload(email, fullName, password))
-                } else {
-                    RetrofitClient.apiService.login(email, password)
+                if (isRegisterMode) {
+                    val regResp = RetrofitClient.apiService.register(RegisterPayload(email, fullName, password))
+                    if (!regResp.isSuccessful) {
+                        withContext(Dispatchers.Main) {
+                            binding.btnLogin.isEnabled = true
+                            binding.btnLogin.text = "Sign Up"
+                            Toast.makeText(this@MainActivity, "Registration failed: ${regResp.code()}", Toast.LENGTH_LONG).show()
+                        }
+                        return@launch
+                    }
                 }
+
+                // Authenticate with backend API for JWT
+                val resp = RetrofitClient.apiService.login(email, password)
+                
                 if (resp.isSuccessful && resp.body() != null) {
                     val token = resp.body()!!.access_token
                     sharedPrefs.edit()
@@ -1290,8 +1299,7 @@ class MainActivity : ComponentActivity() {
                     withContext(Dispatchers.Main) {
                         binding.btnLogin.isEnabled = true
                         binding.btnLogin.text = if (isRegisterMode) "Sign Up" else "Sign In"
-                        val errorMsg = if (isRegisterMode) "Registration failed: ${resp.code()}" else "Login failed: ${resp.code()} (Invalid credentials)"
-                        Toast.makeText(this@MainActivity, errorMsg, Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, "Login failed: ${resp.code()} (Invalid credentials)", Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {

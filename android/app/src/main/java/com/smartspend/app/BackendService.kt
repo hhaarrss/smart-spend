@@ -318,7 +318,7 @@ interface BackendService {
     @POST("auth/register")
     suspend fun register(
         @Body payload: RegisterPayload
-    ): Response<LoginResponse>
+    ): Response<UserData>
 
     @GET("users/me")
     suspend fun getMyProfile(

@@ -60,6 +60,7 @@ async def register(
 
     db.add(new_user)
     await db.flush()  # Populates new_user.id
+    await db.refresh(new_user)  # Populates server defaults like created_at
     
     return new_user
 
