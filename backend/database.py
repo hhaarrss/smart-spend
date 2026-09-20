@@ -88,6 +88,10 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=False,  # Set to True for SQL log output in development
     pool_pre_ping=True,
+    pool_recycle=120,      # Recycle connections every 2 min (Neon kills idle ones)
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
     connect_args={"ssl": "require"} if _is_managed_db else {},
 )
 
