@@ -83,16 +83,23 @@ APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
 _MANAGED_DB_HOSTS = ("neon.tech", "render.com", "supabase.co", "aivencloud.com")
 _is_managed_db = APP_ENV == "production" or any(host in DATABASE_URL for host in _MANAGED_DB_HOSTS)
 
+from sqlalchemy.pool import NullPool
+
 # Create SQLAlchemy async engine
+# For serverless databases (Neon), use NullPool to avoid stale pooled connections.
+# Each request gets a fresh connection — Neon handles pooling on their side.
+_pool_kwargs = {"poolclass": NullPool} if _is_managed_db else {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+    "pool_size": 5,
+    "max_overflow": 10,
+}
+
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,  # Set to True for SQL log output in development
-    pool_pre_ping=True,
-    pool_recycle=120,      # Recycle connections every 2 min (Neon kills idle ones)
-    pool_size=5,
-    max_overflow=10,
-    pool_timeout=30,
     connect_args={"ssl": "require"} if _is_managed_db else {},
+    **_pool_kwargs,
 )
 
 # Async session factory
