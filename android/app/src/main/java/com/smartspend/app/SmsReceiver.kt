@@ -36,6 +36,7 @@ class SmsReceiver : BroadcastReceiver() {
             for (sms in messages) {
                 val sender = sms.originatingAddress ?: continue
                 val messageBody = sms.messageBody ?: continue
+                val timestamp = sms.timestampMillis
 
                 Log.d("SmsReceiver", "Received SMS from: $sender")
 
@@ -44,7 +45,7 @@ class SmsReceiver : BroadcastReceiver() {
                     continue
                 }
 
-                val parsed = SmsTransactionParser.parse(messageBody, sender)
+                val parsed = SmsTransactionParser.parse(messageBody, sender, timestamp)
                 if (parsed != null) {
                     Log.d("SmsReceiver", "Transactional SMS detected! Forwarding structured payload on-device...")
                     sendToBackend(context, parsed.toSmsPayload())

@@ -139,7 +139,7 @@ object SmsTransactionParser {
      * @param sender Sender header (e.g. "AD-HDFCBK")
      * @return ParsedSmsTransaction containing structured fields, or null if spam/non-transactional/rejected.
      */
-    fun parse(rawSms: String, sender: String): ParsedSmsTransaction? {
+    fun parse(rawSms: String, sender: String, timestampMillis: Long = System.currentTimeMillis()): ParsedSmsTransaction? {
         // Enforce bank whitelist: non-whitelisted senders never reach parser
         if (!BankSenderWhitelist.isWhitelisted(sender)) {
             return null
@@ -204,9 +204,11 @@ object SmsTransactionParser {
             }
         }
 
-        // 4. Date Extraction
-        val dateMatch = DATE_PATTERN.find(sms)
-        val parsedDateIso = parseSmsDate(dateMatch?.groupValues?.get(1))
+        // 4. Date Extraction: Use the exact SMS reception timestamp for microsecond precision deduplication!
+        val parsedDateIso = OffsetDateTime.ofInstant(
+            java.time.Instant.ofEpochMilli(timestampMillis),
+            ZoneOffset.UTC
+        ).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
 
         // 5. UPI / IMPS Ref Extraction
         val upiMatch = UPI_REF_PATTERN.find(sms)
