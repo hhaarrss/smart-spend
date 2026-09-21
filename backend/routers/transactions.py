@@ -111,6 +111,8 @@ async def create_transaction(
         amount=tx_in.amount,
         date_val=tx_in.date,
         account_last4=tx_in.account_last4,
+        merchant=tx_in.merchant,
+        upi_ref=None,
     )
 
     # Check for duplicate
@@ -504,6 +506,8 @@ async def ingest_sms(
         amount=sms_in.amount,
         date_val=sms_in.date,
         account_last4=sms_in.account_last4,
+        merchant=sms_in.merchant_raw,
+        upi_ref=sms_in.upi_ref,
     )
 
     # Check for duplicate

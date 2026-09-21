@@ -45,7 +45,9 @@ async def run_backfill(commit: bool = False) -> Tuple[int, int, int]:
                 user_id=tx.user_id,
                 amount=float(tx.amount),
                 date_val=tx.date,
-                account_last4=tx.account_last4
+                account_last4=tx.account_last4,
+                merchant=tx.merchant,
+                upi_ref=tx.upi_ref,
             )
 
             if new_fp in new_fp_map:

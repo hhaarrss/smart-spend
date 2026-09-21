@@ -72,26 +72,25 @@ class SmsReceiver : BroadcastReceiver() {
 
         scope.launch {
             try {
-                flushOfflineQueue(context, token)
-
                 val response = service.ingestSms("Bearer $token", payload)
                 if (response.isSuccessful) {
                     val respBody = response.body()
-                    if (respBody != null && respBody.success) {
+                    if (respBody != null && (respBody.success || respBody.message == "Duplicate transaction detected")) {
                         val tx = respBody.transaction
-                        Log.d("SmsReceiver", "Successfully ingested SMS! Transaction ID: ${tx?.id}")
+                        Log.d("SmsReceiver", "Successfully ingested SMS or was duplicate! Transaction ID: ${tx?.id}")
                         sharedPrefs.edit().apply {
                             putString("last_sms", "${payload.transaction_type} ${payload.amount} from ${payload.bank_sender_id}")
                             putInt("total_synced", sharedPrefs.getInt("total_synced", 0) + 1)
-                            apply()
+                            commit() // Use commit() for synchronous write before process dies
                         }
-                        showSyncNotification(context, tx?.amount, tx?.merchant, tx?.category)
+                        showSyncNotification(context, tx?.amount ?: payload.amount, tx?.merchant ?: payload.merchant_raw, tx?.category)
                     } else {
                         Log.w("SmsReceiver", "Backend rejected SMS: ${respBody?.message ?: "Unknown error"}")
+                        queueOfflineSms(context, payload)
                     }
                 } else if (response.code() == 401) {
                     Log.w("SmsReceiver", "Received 401 Unauthorized — clearing stored token")
-                    sharedPrefs.edit().remove("jwt_token").remove("user_email").apply()
+                    sharedPrefs.edit().remove("jwt_token").remove("user_email").commit()
                 } else {
                     Log.e("SmsReceiver", "Server error ${response.code()} — queuing SMS for retry")
                     queueOfflineSms(context, payload)
@@ -156,7 +155,7 @@ class SmsReceiver : BroadcastReceiver() {
                     put("timestamp", System.currentTimeMillis())
                 }
                 queueArray.put(item)
-                sharedPrefs.edit().putString("offline_sms_queue", queueArray.toString()).apply()
+                sharedPrefs.edit().putString("offline_sms_queue", queueArray.toString()).commit() // Use commit() to ensure disk write
                 Log.d("SmsReceiver", "Queued structured SMS payload offline. Queue size: ${queueArray.length()}")
             } catch (e: Exception) {
                 Log.e("SmsReceiver", "Failed to queue offline SMS payload", e)
@@ -190,10 +189,10 @@ class SmsReceiver : BroadcastReceiver() {
 
                     try {
                         val response = service.ingestSms("Bearer $token", payload)
-                        if (response.isSuccessful && response.body()?.success == true) {
+                        if (response.isSuccessful && (response.body()?.success == true || response.body()?.message == "Duplicate transaction detected")) {
                             Log.d("SmsReceiver", "Flushed offline SMS successfully")
                             val newCount = sharedPrefs.getInt("total_synced", 0) + 1
-                            sharedPrefs.edit().putInt("total_synced", newCount).apply()
+                            sharedPrefs.edit().putInt("total_synced", newCount).commit()
                         } else if (response.code() == 401) {
                             break
                         } else {
@@ -203,7 +202,7 @@ class SmsReceiver : BroadcastReceiver() {
                         remainingQueue.put(obj)
                     }
                 }
-                sharedPrefs.edit().putString("offline_sms_queue", remainingQueue.toString()).apply()
+                sharedPrefs.edit().putString("offline_sms_queue", remainingQueue.toString()).commit()
             } catch (e: Exception) {
                 Log.e("SmsReceiver", "Error flushing offline SMS queue", e)
             }
