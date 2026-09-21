@@ -138,11 +138,11 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
 
     # Determine debit vs credit
     debit_keywords = [
-        "debited", "spent", "paid", "withdrawn", "payment of", "charge",
-        "withdrew", "txn to", "used for", "used at", "transaction of", "sent to", "transfer to"
+        "debited", "debitted", "spent", "paid", "withdrawn", "payment of", "charge",
+        "withdrew", "txn to", "used for", "used at", "transaction of", "sent to", "transfer to", "dr "
     ]
     credit_keywords = [
-        "credited", "deposited", "received from", "received rs", "credited with", "refund of"
+        "credited", "creditted", "deposited", "received from", "received rs", "credited with", "refund of", "cr "
     ]
 
     is_debit = any(kw in sms_lower for kw in debit_keywords)

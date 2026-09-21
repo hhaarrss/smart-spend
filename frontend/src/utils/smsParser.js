@@ -14,8 +14,8 @@ const SPAM_KEYWORDS = [
 ];
 
 const ACTION_KEYWORDS = [
-  'debited', 'credited', 'transferred', 'spent', 'paid', 'withdrawn',
-  'deposited', 'sent to', 'received from', 'received rs', 'credited with', 'refund',
+  'debited', 'debitted', 'credited', 'creditted', 'transferred', 'spent', 'paid', 'withdrawn',
+  'deposited', 'sent to', 'received from', 'received rs', 'credited with', 'refund', 'dr ', 'cr '
 ];
 
 const isTransactionalSender = (sender) => {

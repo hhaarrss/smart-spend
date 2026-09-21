@@ -75,12 +75,12 @@ object SmsTransactionParser {
 
     // Debit and credit keyword lists directly from sms_parser.py lines 140-146
     private val DEBIT_KEYWORDS = listOf(
-        "debited", "spent", "paid", "withdrawn", "payment of", "charge",
-        "withdrew", "txn to", "used for", "used at", "transaction of", "sent to", "transfer to"
+        "debited", "debitted", "spent", "paid", "withdrawn", "payment of", "charge",
+        "withdrew", "txn to", "used for", "used at", "transaction of", "sent to", "transfer to", "dr "
     )
 
     private val CREDIT_KEYWORDS = listOf(
-        "credited", "deposited", "received from", "received rs", "credited with", "refund of"
+        "credited", "creditted", "deposited", "received from", "received rs", "credited with", "refund of", "cr "
     )
 
     // Amount extraction regex from sms_parser.py line 158
