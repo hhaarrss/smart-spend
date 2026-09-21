@@ -14,9 +14,18 @@ const SPAM_KEYWORDS = [
 ];
 
 const ACTION_KEYWORDS = [
-  'debited', 'debitted', 'credited', 'creditted', 'transferred', 'spent', 'paid', 'withdrawn',
-  'deposited', 'sent to', 'received from', 'received rs', 'credited with', 'refund', 'dr ', 'cr '
+  'debited', 'debitted', 'dr.', 'dr ',
+  'credited', 'creditted', 'cr.', 'cr ',
+  'transferred', 'spent', 'paid', 'withdrawn',
+  'deposited', 'sent to', 'received from', 'received rs', 'credited with', 'refund',
+  'auto debit', 'auto-debit', 'emi deducted', 'emi paid', 'purchase of', 'purchase at', 'pos txn',
+  'money received', 'salary credited'
 ];
+
+const DEBIT_KEYWORDS = ['debited', 'debitted', 'dr.', 'dr ', 'spent', 'paid', 'withdrawn',
+  'auto debit', 'auto-debit', 'emi deducted', 'emi paid', 'purchase of', 'purchase at', 'pos txn'];
+const CREDIT_KEYWORDS = ['credited', 'creditted', 'cr.', 'cr ', 'deposited', 'received from',
+  'received rs', 'credited with', 'refund', 'money received', 'salary credited'];
 
 const isTransactionalSender = (sender) => {
   const normalized = sender.toUpperCase();
@@ -75,17 +84,18 @@ export const parseSmsLocally = (rawSms, sender) => {
     return null;
   }
 
-  const transactionType = ['credited', 'received', 'deposited', 'refund'].some((keyword) => lower.includes(keyword))
+  const transactionType = CREDIT_KEYWORDS.some((keyword) => lower.includes(keyword)) && !DEBIT_KEYWORDS.some((keyword) => lower.includes(keyword))
     ? 'credit'
     : 'debit';
   const merchantMatch = sms.match(/\b(?:at|to|by|from)\s+([A-Za-z0-9 .&@_-]{2,80}?)(?=\s+(?:on|via|upi|ref|rrn|a\/c|acct|card|avl|available|if\b)|[.;,]|$)/i)
     || sms.match(/\binfo[:\s]+([A-Za-z0-9 .&@_-]{2,80}?)(?=\s+(?:on|via|upi|ref|rrn|avl|available|if\b)|[.;,]|$)/i);
-  const accountMatch = sms.match(/(?:a\/c|acct|account|card)\s*(?:no\.?)?\s*(?:x+|xx|\*+)?\s*(\d{4})/i)
+  const accountMatch = sms.match(/(?:a\/c|acct|account|card|ending)\s*(?:no\.?)?\s*[xX*#]{0,10}(\d{4})(?!\d)/i)
     || sms.match(/(?:x{2,}|\*{2,})(\d{4})/i);
   const dateMatch = sms.match(/\b(\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4})\b/i)
     || sms.match(/\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b/)
     || sms.match(/\b(\d{4}[-/]\d{1,2}[-/]\d{1,2})\b/);
-  const upiRefMatch = sms.match(/\b(?:upi|ref|rrn)(?:\s*(?:no|id))?[:\s-]*([A-Z0-9]{6,})\b/i);
+  // UPI/IMPS/RRN ref — catches 8-22 chars including 12-digit IMPS/RRN
+  const upiRefMatch = sms.match(/\b(?:upi\s*(?:ref(?:erence)?(?:\s*no\.?)?|id|no\.?)?|imps\s*(?:ref(?:erence)?(?:\s*no\.?)?)?|rrn|ref(?:erence)?(?:\s*no\.?)?)\s*[:\s-]*([A-Z0-9]{8,22})\b/i);
 
   return {
     amount,

@@ -54,44 +54,45 @@ def parse_sms_date(date_str: str) -> datetime:
 def identify_bank(sender: str, body: str) -> str:
     """
     Identifies the bank or payment provider from sender ID or SMS body.
-    Defaults to "BANK" if no specific institution name matches.
+    Sender ID takes priority over body text to avoid false matches
+    (e.g. BOB SMS containing 'oksbi' UPI VPA should not be tagged as SBI).
     """
     s_upper = sender.upper()
     b_upper = body.upper()
-    
-    if "HDFC" in s_upper or "HDFC" in b_upper:
-        return "HDFC"
-    elif "SBI" in s_upper or "SBI" in b_upper:
-        return "SBI"
-    elif "ICICI" in s_upper or "ICICI" in b_upper:
-        return "ICICI"
-    elif "AXIS" in s_upper or "AXIS" in b_upper:
-        return "Axis"
-    elif "KOTAK" in s_upper or "KOTAK" in b_upper:
-        return "Kotak"
-    elif "YESBK" in s_upper or "YES" in b_upper:
-        return "Yes Bank"
-    elif "PNB" in s_upper or "PUNJAB" in b_upper:
-        return "PNB"
-    elif "PAYTM" in s_upper or "PYTM" in b_upper:
-        return "Paytm"
-    elif "IDFC" in s_upper or "IDFC" in b_upper:
-        return "IDFC"
-    elif "UNION" in s_upper or "UNION" in b_upper:
-        return "Union Bank"
-    elif "BOB" in s_upper or "BARODA" in b_upper:
-        return "Bank of Baroda"
-    elif "CANARA" in s_upper or "CANARA" in b_upper:
-        return "Canara Bank"
-    elif "RBL" in s_upper or "RBL" in b_upper:
-        return "RBL Bank"
-    elif "CITI" in s_upper or "CITI" in b_upper:
-        return "Citi Bank"
-    elif "FED" in s_upper or "FEDERAL" in b_upper:
-        return "Federal Bank"
-    elif "AMEX" in s_upper or "AMERICAN EXPRESS" in b_upper:
-        return "AmEx"
-    
+
+    # Check sender first (high confidence)
+    if "HDFC" in s_upper: return "HDFC"
+    if "SBI" in s_upper: return "SBI"
+    if "ICICI" in s_upper: return "ICICI"
+    if "AXIS" in s_upper: return "Axis"
+    if "KOTAK" in s_upper: return "Kotak"
+    if "YESBK" in s_upper or "YESBNK" in s_upper: return "Yes Bank"
+    if "PNB" in s_upper: return "PNB"
+    if "PAYTM" in s_upper or "PYTM" in s_upper: return "Paytm"
+    if "IDFC" in s_upper: return "IDFC"
+    if "UNION" in s_upper: return "Union Bank"
+    if "BOB" in s_upper or "BARODA" in s_upper: return "Bank of Baroda"
+    if "CANARA" in s_upper: return "Canara Bank"
+    if "RBL" in s_upper: return "RBL Bank"
+    if "CITI" in s_upper: return "Citi Bank"
+    if "FED" in s_upper or "FEDERAL" in s_upper: return "Federal Bank"
+    if "AMEX" in s_upper: return "AmEx"
+    if "GPAY" in s_upper or "BHIM" in s_upper: return "UPI"
+
+    # Fall back to body (lower confidence — avoid UPI VPA false matches)
+    if "HDFC BANK" in b_upper: return "HDFC"
+    if "STATE BANK" in b_upper or "SBI" in b_upper: return "SBI"
+    if "ICICI BANK" in b_upper: return "ICICI"
+    if "AXIS BANK" in b_upper: return "Axis"
+    if "KOTAK" in b_upper: return "Kotak"
+    if "PUNJAB" in b_upper: return "PNB"
+    if "BARODA" in b_upper or "BOB" in b_upper: return "Bank of Baroda"
+    if "CANARA" in b_upper: return "Canara Bank"
+    if "UNION BANK" in b_upper: return "Union Bank"
+    if "IDFC" in b_upper: return "IDFC"
+    if "FEDERAL BANK" in b_upper: return "Federal Bank"
+    if "AMERICAN EXPRESS" in b_upper: return "AmEx"
+
     return "BANK"
 
 
@@ -138,14 +139,16 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
 
     # Determine debit vs credit
     debit_keywords = [
-        "debited", "debitted", "spent", "paid", "withdrawn", "payment of", "charge",
+        "debited", "debitted", "dr.", "dr ",
+        "spent", "paid", "withdrawn", "payment of", "charge",
         "withdrew", "txn to", "used for", "used at", "transaction of", "sent to", "transfer to",
         "auto debit", "auto-debit", "emi deducted", "emi paid", "mandate executed",
-        "purchase of", "purchase at", "pos txn", "dr "
+        "purchase of", "purchase at", "pos txn"
     ]
     credit_keywords = [
-        "credited", "creditted", "deposited", "received from", "received rs",
-        "credited with", "refund of", "money received", "salary credited", "cr "
+        "credited", "creditted", "cr.", "cr ",
+        "deposited", "received from", "received rs",
+        "credited with", "refund of", "money received", "salary credited"
     ]
 
     is_debit = any(kw in sms_lower for kw in debit_keywords)
@@ -223,6 +226,14 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
         except Exception:
             pass
 
+    # 6. UPI Ref Extraction
+    upi_ref_match = re.search(
+        r"(?:upi\s*(?:ref(?:erence)?(?:\s*no\.?)?|id|no\.?)?|imps\s*(?:ref(?:erence)?(?:\s*no\.?)?)?|rrn|ref(?:erence)?(?:\s*no\.?)?)\s*[:\s-]*([A-Z0-9]{8,22})",
+        sms,
+        re.IGNORECASE
+    )
+    upi_ref = upi_ref_match.group(1) if upi_ref_match else None
+
     return {
         "amount": amount,
         "type": tx_type,
@@ -230,5 +241,6 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
         "merchant": merchant,
         "balance": bal,
         "date": parsed_date,
-        "bank": bank
+        "bank": bank,
+        "upi_ref": upi_ref
     }

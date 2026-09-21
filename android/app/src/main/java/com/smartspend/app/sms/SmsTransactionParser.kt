@@ -75,15 +75,17 @@ object SmsTransactionParser {
 
     // Debit and credit keyword lists — comprehensive Indian bank SMS patterns
     private val DEBIT_KEYWORDS = listOf(
-        "debited", "debitted", "spent", "paid", "withdrawn", "payment of", "charge",
+        "debited", "debitted", "dr.", "dr ",
+        "spent", "paid", "withdrawn", "payment of", "charge",
         "withdrew", "txn to", "used for", "used at", "transaction of", "sent to", "transfer to",
         "auto debit", "auto-debit", "emi deducted", "emi paid", "mandate executed",
-        "purchase of", "purchase at", "pos txn", "dr "
+        "purchase of", "purchase at", "pos txn"
     )
 
     private val CREDIT_KEYWORDS = listOf(
-        "credited", "creditted", "deposited", "received from", "received rs",
-        "credited with", "refund of", "money received", "salary credited", "cr "
+        "credited", "creditted", "cr.", "cr ",
+        "deposited", "received from", "received rs",
+        "credited with", "refund of", "money received", "salary credited"
     )
 
     // Amount extraction regex from sms_parser.py line 158
@@ -124,7 +126,7 @@ object SmsTransactionParser {
     // UPI / IMPS / RRN / transaction reference number extraction
     // Catches: UPI Ref 123456789012, IMPS Ref No 123456, RRN: 123456, Ref:ABC123
     private val UPI_REF_PATTERN = Regex(
-        """(?i)(?:upi\s*(?:ref(?:erence)?\s*(?:no\.?|num\.?|number)?|id|no\.?)?|imps\s*(?:ref(?:erence)?\s*(?:no\.?)?)?|rrn\s*[:\s-]*|ref(?:erence)?\s*(?:no\.?|num)?\s*[:\s-]*)\s*([A-Za-z0-9]{8,22})"""
+        """(?i)(?:upi\s*(?:ref(?:erence)?\s*(?:no\.?|num\.?|number)?|id|no\.?)?|imps\s*(?:ref(?:erence)?\s*(?:no\.?)?)?|rrn|ref(?:erence)?\s*(?:no\.?|num)?)\s*[:\s-]*([A-Z0-9]{8,22})"""
     )
 
     // Generic banking terms to reject in merchant extraction (sms_parser.py line 198)
