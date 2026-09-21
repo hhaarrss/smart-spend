@@ -73,14 +73,17 @@ object SmsTransactionParser {
         Regex("""personal\s+loan""", RegexOption.IGNORE_CASE)
     )
 
-    // Debit and credit keyword lists directly from sms_parser.py lines 140-146
+    // Debit and credit keyword lists — comprehensive Indian bank SMS patterns
     private val DEBIT_KEYWORDS = listOf(
         "debited", "debitted", "spent", "paid", "withdrawn", "payment of", "charge",
-        "withdrew", "txn to", "used for", "used at", "transaction of", "sent to", "transfer to", "dr "
+        "withdrew", "txn to", "used for", "used at", "transaction of", "sent to", "transfer to",
+        "auto debit", "auto-debit", "emi deducted", "emi paid", "mandate executed",
+        "purchase of", "purchase at", "pos txn", "dr "
     )
 
     private val CREDIT_KEYWORDS = listOf(
-        "credited", "creditted", "deposited", "received from", "received rs", "credited with", "refund of", "cr "
+        "credited", "creditted", "deposited", "received from", "received rs",
+        "credited with", "refund of", "money received", "salary credited", "cr "
     )
 
     // Amount extraction regex from sms_parser.py line 158
@@ -89,9 +92,15 @@ object SmsTransactionParser {
         RegexOption.IGNORE_CASE
     )
 
-    // Account last 4 extraction regex from sms_parser.py line 172
+    // Account last 4 extraction — covers xx1234, ****1234, ending 1234, a/c 1234, card 1234
     private val ACCT_PATTERN = Regex(
-        """(?:a/c|acct|ac|card|account|vpa)\s*(?:no\.?\s*)?(?:x+|\*+)?(\d{3,4})""",
+        """(?:a/c|acct|ac|account|card|ending|no\.|linked)\s*(?:no\.?\s*)?[xX*#]{0,10}(\d{3,4})(?!\d)""",
+        RegexOption.IGNORE_CASE
+    )
+
+    // Fallback: bare xx followed by digits (e.g. "xx1234", "****1234")
+    private val ACCT_PATTERN_FALLBACK = Regex(
+        """(?:xx+|\*{2,})(\d{4})""",
         RegexOption.IGNORE_CASE
     )
 
@@ -112,9 +121,10 @@ object SmsTransactionParser {
     // Date extraction regex from sms_parser.py line 205
     private val DATE_PATTERN = Regex("""(\d{1,2}[\/\-\.](?:\d{1,2}|[A-Za-z]{3})[\/\-\.]\d{2,4})""")
 
-    // UPI / IMPS / RRN reference pattern
+    // UPI / IMPS / RRN / transaction reference number extraction
+    // Catches: UPI Ref 123456789012, IMPS Ref No 123456, RRN: 123456, Ref:ABC123
     private val UPI_REF_PATTERN = Regex(
-        """(?i)(?:upi\s*(?:ref\s*(?:no\.?)?|id|no\.?)?|imps\s*(?:ref\s*(?:no\.?)?)?|ref\s*(?:no\.?)?|rrn[:\s-]*)\s*[:\s-]*([A-Za-z0-9]{6,20})"""
+        """(?i)(?:upi\s*(?:ref(?:erence)?\s*(?:no\.?|num\.?|number)?|id|no\.?)?|imps\s*(?:ref(?:erence)?\s*(?:no\.?)?)?|rrn\s*[:\s-]*|ref(?:erence)?\s*(?:no\.?|num)?\s*[:\s-]*)\s*([A-Za-z0-9]{8,22})"""
     )
 
     // Generic banking terms to reject in merchant extraction (sms_parser.py line 198)
@@ -177,8 +187,9 @@ object SmsTransactionParser {
             return null
         }
 
-        // 2. Account Last 4 Extraction
+        // 2. Account Last 4 Extraction — try primary pattern, then fallback
         val acctMatch = ACCT_PATTERN.find(sms)
+            ?: ACCT_PATTERN_FALLBACK.find(sms)
         val accountLast4 = acctMatch?.groupValues?.get(1) ?: "0000"
 
         // 3. Merchant / Payee Extraction

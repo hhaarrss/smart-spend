@@ -139,10 +139,13 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
     # Determine debit vs credit
     debit_keywords = [
         "debited", "debitted", "spent", "paid", "withdrawn", "payment of", "charge",
-        "withdrew", "txn to", "used for", "used at", "transaction of", "sent to", "transfer to", "dr "
+        "withdrew", "txn to", "used for", "used at", "transaction of", "sent to", "transfer to",
+        "auto debit", "auto-debit", "emi deducted", "emi paid", "mandate executed",
+        "purchase of", "purchase at", "pos txn", "dr "
     ]
     credit_keywords = [
-        "credited", "creditted", "deposited", "received from", "received rs", "credited with", "refund of", "cr "
+        "credited", "creditted", "deposited", "received from", "received rs",
+        "credited with", "refund of", "money received", "salary credited", "cr "
     ]
 
     is_debit = any(kw in sms_lower for kw in debit_keywords)
@@ -170,10 +173,10 @@ def parse_sms(raw_sms: str, sender: str) -> Optional[Dict[str, Any]]:
 
     # 2. Account Last 4 Extraction
     acct_match = re.search(
-        r"(?:a/c|acct|ac|card|account|vpa)\s*(?:no\.?\s*)?(?:x+|\*+)?(\d{3,4})",
+        r"(?:a/c|acct|ac|account|card|ending|linked)\s*(?:no\.?\s*)?[xX*#]{0,10}(\d{3,4})(?!\d)",
         sms,
         re.IGNORECASE
-    )
+    ) or re.search(r"(?:xx+|\*{2,})(\d{4})", sms, re.IGNORECASE)
     account_last4 = acct_match.group(1) if acct_match else "0000"
 
     # 3. Merchant / Payee Extraction
