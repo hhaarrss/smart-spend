@@ -36,7 +36,7 @@ class SmsReceiver : BroadcastReceiver() {
             for (sms in messages) {
                 val sender = sms.originatingAddress ?: continue
                 val messageBody = sms.messageBody ?: continue
-                val timestamp = sms.timestampMillis
+                val timestamp = System.currentTimeMillis()
 
                 Log.d("SmsReceiver", "Received SMS from: $sender")
 
